@@ -4,79 +4,53 @@ model: |
 
     type user
 
-    type organization
+    type system
       relations
         define admin: [user]
         define member: [user]
-
-        define can_add_member: admin
-        define can_delete_member: admin
-        define can_view_member: admin or member
-        define can_add_resource: admin or member
+        
+        # System-wide actions
+        define can_manage_users: admin
+        define can_create_resource: admin or member
 
     type resource
       relations
-        define organization: [organization]
+        # The link: This resource belongs to a system
+        define workspace: [system]
 
-        # map resource permissions to organization roles
-        define can_delete_resource: admin from organization
-        define can_view_resource: admin from organization or member from organization
+        # Permission Inheritance:
+        # "If you are an admin of the workspace I belong to, you can delete me"
+        define can_view: admin from workspace or member from workspace
+        define can_delete: admin from workspace
 
 tuples:
-  # Example organization setup
+  # In a single tenant app, we usually have one 'system' object
   - user: user:alice
     relation: admin
-    object: organization:acme
+    object: system:main
 
   - user: user:bob
     relation: member
-    object: organization:acme
+    object: system:main
 
-  - user: user:charlie
-    relation: member
-    object: organization:acme
-
-  # Example resources belonging to the organization
-  - user: organization:acme
-    relation: organization
+  # Resources are linked to that one system
+  - user: system:main
+    relation: workspace
     object: resource:database-server
-
-  - user: organization:acme
-    relation: organization
-    object: resource:api-gateway
 
 tests:
   - check:
       - user: user:alice
-        object: organization:acme
+        object: system:main
         assertions:
-          can_add_member: true
-          can_delete_member: true
-          can_view_member: true
-          can_add_resource: true
-
-      - user: user:bob
-        object: organization:acme
-        assertions:
-          can_add_member: false
-          can_delete_member: false
-          can_view_member: true
-          can_add_resource: true
-
+          can_manage_users: true
       - user: user:alice
         object: resource:database-server
         assertions:
-          can_delete_resource: true
-          can_view_resource: true
-
+          can_view: true
+          can_delete: true
       - user: user:bob
         object: resource:database-server
         assertions:
-          can_delete_resource: false
-          can_view_resource: true
-
-      - user: user:charlie
-        object: resource:api-gateway
-        assertions:
-          can_delete_resource: false
-          can_view_resource: true
+          can_view: true
+          can_delete: false
