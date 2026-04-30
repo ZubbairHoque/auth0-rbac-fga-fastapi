@@ -1,8 +1,8 @@
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy import Column, String, DateTime, Text
-from datetime import datetime
 from app.config import settings
+from sqlalchemy.sql import func
 
 # Create async engine
 engine = create_async_engine(
@@ -22,14 +22,6 @@ class Base(DeclarativeBase):
     pass
 
 # SQLAlchemy Models
-class OrganizationDB(Base):
-    __tablename__ = "organizations"
-    
-    id = Column(String, primary_key=True, index=True)
-    name = Column(String, nullable=False, index=True)
-    description = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-
 class ResourceDB(Base):
     __tablename__ = "resources"
     
@@ -37,8 +29,7 @@ class ResourceDB(Base):
     name = Column(String, nullable=False, index=True)
     description = Column(Text, nullable=True)
     resource_type = Column(String, nullable=False)
-    organization_id = Column(String, nullable=False, index=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, server_default=func.now())
 
 # Database dependency
 async def get_db():

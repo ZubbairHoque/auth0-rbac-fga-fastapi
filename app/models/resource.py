@@ -8,8 +8,7 @@ class ResourceBase(BaseModel):
     resource_type: str = Field(..., description="Type of resource (e.g., 'database', 'api', 'file')")
 
 class ResourceCreate(ResourceBase):
-    organization_id: str = Field(..., description="Organization that owns this resource")
-
+    pass
 class ResourceUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
@@ -17,7 +16,6 @@ class ResourceUpdate(BaseModel):
 
 class Resource(ResourceBase):
     id: str = Field(..., description="Resource ID")
-    organization_id: str = Field(..., description="Organization that owns this resource")
     created_at: Optional[datetime] = None
     
     class Config:
