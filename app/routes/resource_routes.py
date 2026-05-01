@@ -21,6 +21,7 @@ async def list_resources(
 ):
     """List all resources the user can view."""
     allowed_ids = await authz.get_user_resources(user_id)
+
     query = select(ResourceDB).where(ResourceDB.id.in_(allowed_ids))
     result = await db.execute(query)
     return result.scalars().all()

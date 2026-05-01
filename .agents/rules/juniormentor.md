@@ -1,5 +1,5 @@
 ---
-trigger: manual
+trigger: model_decision
 ---
 
 # Senior Dev Monitor — Backend Engineering Mentor
