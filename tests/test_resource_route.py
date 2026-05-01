@@ -59,3 +59,32 @@ async def test_get_resource_forbidden():
         assert response.json()["detail"] == "Access denied"
     finally:
         app.dependency_overrides = {}
+
+@pytest.mark.asyncio
+async def test_create_resource_success():
+    # 1. Arrange Mocks
+    mock_db = AsyncMock()
+    mock_authz = AsyncMock()
+    mock_authz.check_permission.return_value = True
+
+    app.dependency_overrides[get_db] = lambda: mock_db
+    app.dependency_overrides[get_authz_service] = lambda: mock_authz
+
+    try:
+        # 2. Act
+        payload = {"name": "Test", "description": "...", "resource_type": "api"}
+        response = client.post("/resources/?user_id=admin", json=payload)
+
+        # 3. Assert
+        assert response.status_code == 200
+        
+        mock_db.add.assert_called_once()
+        # Verify the object passed to db.add has the correct attributes
+        added_resource = mock_db.add.call_args[0][0]
+        assert added_resource.name == "Test"
+        assert added_resource.description == "..."
+        assert added_resource.resource_type == "api"
+
+        mock_authz.link_resource_to_system.assert_called_once()
+    finally:
+        app.dependency_overrides = {}
