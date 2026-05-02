@@ -15,7 +15,6 @@ async def test_get_resource_forbidden():
     
     # Mock DB just in case, though it shouldn't be reached
     mock_db = AsyncMock()
-    
     app.dependency_overrides[get_authz_service] = lambda: mock_authz
     app.dependency_overrides[get_db] = lambda: mock_db
 

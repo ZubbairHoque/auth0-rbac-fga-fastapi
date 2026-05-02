@@ -2,9 +2,9 @@ name: Python application
 
 on:
   push:
-    branches: ["main", "single-tenant-refactor"]
+    branches: [ "main", "single-tenant-refactor" ]
   pull_request:
-    branches: ["main"]
+    branches: [ "main" ]
 
 permissions:
   contents: read
@@ -23,9 +23,7 @@ jobs:
         ports:
           - 5432:5432
         options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
+          --health-cmd pg_isready --health-interval 10s --health-timeout 5s
           --health-retries 5
 
     steps:
@@ -41,7 +39,7 @@ jobs:
           enable-cache: true
 
       - name: Install dependencies
-        working-directory: ./backend
+        working-directory: ./auth0-rbac-fga-fastapi
         run: |
           uv sync
           uv pip install flake8 pytest
@@ -49,13 +47,13 @@ jobs:
           uv pip install pytest-asyncio
 
       - name: Lint with flake8
-        working-directory: ./backend
+        working-directory: ./auth0-rbac-fga-fastapi
         run: |
           uv run flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics --exclude=.venv
           uv run flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics --exclude=.venv
 
       - name: Test with pytest
-        working-directory: ./backend
+        working-directory: ./auth0-rbac-fga-fastapi
         env:
           DATABASE_URL: postgresql+psycopg://postgres:password@localhost:5432/backend_db
           CLOUDFLARE_ACCOUNT_ID: dummy_id
