@@ -79,9 +79,13 @@ class Auth0FGAClient:
         """List all objects of a given type."""
         try:
             client = self._get_client()
+            # pyrefly: ignore [missing-argument]
             response = await client.list_objects(
+                # pyrefly: ignore [unexpected-keyword]
                 user=user,
+                # pyrefly: ignore [unexpected-keyword]
                 relation=relation,
+                # pyrefly: ignore [unexpected-keyword]
                 type=object_type
             )
             return response.objects if hasattr(response, 'objects') else []
