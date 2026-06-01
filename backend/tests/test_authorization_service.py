@@ -1,5 +1,7 @@
 import pytest
 from unittest.mock import AsyncMock, patch
+
+import pytest_asyncio
 from app.services.authorization_service import authz_service
 
 
@@ -63,6 +65,17 @@ async def test_check_permission(mock_fga):
     mock_fga.check_permission.assert_called_once_with(
         user="user:user123",
         relation="can_create_resource",
+        object_id="system:main"
+    )
+
+@pytest.mark.asyncio
+async def test_validate_dashboard_access(mock_fga):
+    result = await authz_service.validate_dashboard_access("user123", "admin")
+    
+    assert result is True
+    mock_fga.check_permission.assert_called_once_with(
+        user="user:user123",
+        relation="can_access_admin_dashboard",
         object_id="system:main"
     )
 

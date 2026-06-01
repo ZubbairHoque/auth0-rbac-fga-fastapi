@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 
 from app.config import settings
 from app.database import init_db
-from app.routes import resource_routes, system_routes
+from app.routes import resource_routes, system_routes, dashboard_routes
 from app.services.authorization_service import authz_service
 
 @asynccontextmanager
@@ -13,14 +13,14 @@ async def lifespan(app: FastAPI):
     print(f"Starting {settings.app_title} v{settings.app_version}")
     print("Initializing database...")
     await init_db()
-    
+
     # Check Auth0 FGA connection
     fga_healthy = await authz_service.check_auth0_fga_health()
     if fga_healthy:
         print("Auth0 FGA connection established!")
     else:
         print("Warning: Auth0 FGA connection failed.")
-    
+
     yield
 
 app = FastAPI(
@@ -43,6 +43,7 @@ app.add_middleware(
 # Include routers
 app.include_router(resource_routes.router, prefix="/resources", tags=["resources"])
 app.include_router(system_routes.router, prefix="/system", tags=["system"])
+app.include_router(dashboard_routes.router, prefix="/dashboard", tags=["dashboard"])
 
 @app.get("/")
 async def read_root():

@@ -5,7 +5,9 @@ from app.utils.auth0_fga_client import fga_client
 ROLES = ["admin", "member"]
 
 class AuthorizationService:
-    """RBAC authorization service using Auth0 FGA for a Single-Tenant System."""
+    """
+    RBAC authorization service using Auth0 FGA for a Single-Tenant System.
+    """
 
     # The single anchor for our entire internal application
     SYSTEM_ID = "main"
@@ -47,8 +49,17 @@ class AuthorizationService:
             )
         ])
 
-    async def check_permission(self, user_id: str, action: str, resource_id: Optional[str] = None) -> bool:
-        """Check if user is allowed to perform an action on a resource or the system."""
+    async def check_permission(
+            self, 
+            user_id: str, 
+            action: str, 
+            resource_id: Optional[str] = None
+            ) -> bool:
+        
+        """
+        Check if user is allowed to perform an action on a resource or the system.
+        """
+
         target_obj = f"resource:{resource_id}" if resource_id else self.SYSTEM_OBJ
         
         return await fga_client.check_permission(
@@ -56,7 +67,19 @@ class AuthorizationService:
             relation=action,
             object_id=target_obj
         )
-
+    
+    async def validate_dashboard_access(
+            self, user_id: str, dashboard_type: str,
+            ) -> bool:
+        
+        """
+        Dynamically checks dashboard access based on the provided type.
+        This leverages the FGA model rules defined in Step 1.
+        """
+       
+        relation = f"can_access_{dashboard_type}_dashboard"
+        return await self.check_permission(user_id, relation)
+   
     async def get_user_resources(self, user_id: str) -> List[str]:
         """Get all resource IDs a user can view."""
         results = await fga_client.list_objects(

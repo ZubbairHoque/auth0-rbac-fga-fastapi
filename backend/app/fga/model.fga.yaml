@@ -7,7 +7,10 @@ model: |
     type system
       relations
         define admin: [user]
-        define member: [user]
+        define member: [user] 
+
+        define can_access_admin_dashboard: admin
+        define can_access_member_dashboard: member or admin
         
         # System-wide actions
         define can_manage_users: admin
