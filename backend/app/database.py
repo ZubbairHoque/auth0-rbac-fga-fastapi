@@ -1,6 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase
-from sqlalchemy import Column, String, DateTime, Text
+from sqlalchemy import Boolean, Column, String, DateTime, Text
 from app.config import settings
 from sqlalchemy.sql import func
 
@@ -29,6 +29,16 @@ class ResourceDB(Base):
     name = Column(String, nullable=False, index=True)
     description = Column(Text, nullable=True)
     resource_type = Column(String, nullable=False)
+    created_at = Column(DateTime, server_default=func.now())
+
+class InvitationDB(Base):
+    __tablename__ = "Invitations"
+
+    id = Column(String, primary_key=True, index=True)
+    email = Column(String, unique=True)
+    role = Column(String)
+    token = Column(String)
+    is_used = Column(Boolean, default=False)
     created_at = Column(DateTime, server_default=func.now())
 
 # Database dependency

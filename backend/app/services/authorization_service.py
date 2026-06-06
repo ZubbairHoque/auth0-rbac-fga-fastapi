@@ -88,7 +88,10 @@ class AuthorizationService:
             object_type="resource"
         )
         return [res.replace("resource:", "") for res in results]
-    
+
+
+
+
     async def check_auth0_fga_health(self) -> bool:
         """Check if Auth0 FGA service is healthy."""
         return await fga_client.health_check()
