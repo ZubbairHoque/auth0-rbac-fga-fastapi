@@ -1,96 +1,120 @@
 import os
-from dotenv import load_dotenv
 import streamlit as st
 import requests
+from dotenv import load_dotenv
 
-# Load environment variables
+# Load configuration
+# Note: Ensure .env is in the same directory or adjust path
 load_dotenv(dotenv_path="frontend/.env")
 
 # Reusable configuration
 BACKEND_URL = os.getenv("backend_url", "http://localhost:8000")
 
-# Initialize session state
+# --- INITIALIZATION ---
+# Ensure session state is prepared before any UI renders
 if "authenticated_role" not in st.session_state:
     st.session_state["authenticated_role"] = None
 if "user_id" not in st.session_state:
     st.session_state["user_id"] = None
 
-# --- APP LOGIC ---
-
-if st.session_state["authenticated_role"] is None:
-    # --- SHOW LOGIN UI ---
-    st.title("Login")
+def show_login_page():
+    """Centered Login Card with professional layout."""
+    col1, col2, col3 = st.columns([1, 2, 1])
     
-    user_id_input = st.text_input("User ID:", placeholder="user:alice")    
-    login_clicked = st.button("Enter")
+    with col2:
+        st.title("🛡️ Secure Portal")
+        st.write("Welcome. Please identify yourself to access your workspace.")
+        st.divider()
+        
+        user_id_input = st.text_input("User ID:", placeholder="user:alice")    
+        
+        if st.button("Enter System", use_container_width=True):
+            if not user_id_input:
+                st.warning("Please enter a User ID.")
+                return
 
-    if login_clicked:
-        if not user_id_input:
-            st.warning("Please enter a User ID.")
-        else:
             try:
-                # 1. Check Admin Access
-                admin_res = requests.get(
-                    f"{BACKEND_URL}/dashboard/validate/admin", 
-                    params={"user_id": user_id_input}
-                )
-                
-                if admin_res.status_code == 200:
-                    st.session_state["authenticated_role"] = "admin"
-                    st.session_state["user_id"] = user_id_input
-                    st.rerun()
-
-                # 2. If not admin, check Member Access
-                # Note: Backend uses singular 'member'
-                elif admin_res.status_code == 403:
-                    member_res = requests.get(
-                        f"{BACKEND_URL}/dashboard/validate/member", 
-                        params={"user_id": user_id_input}
-                    )
-
-                    if member_res.status_code == 200:
-                        st.session_state["authenticated_role"] = "member"
+                # Sequential role check: Admin first
+                # This is the "B2B Sequential Knock" pattern
+                with st.spinner("Validating permissions..."):
+                    found_role = None
+                    for role_type in ["admin", "member"]:
+                        res = requests.get(
+                            f"{BACKEND_URL}/dashboard/validate/{role_type}", 
+                            params={"user_id": user_id_input}
+                        )
+                        if res.status_code == 200:
+                            found_role = role_type
+                            break
+                    
+                    if found_role:
+                        st.session_state["authenticated_role"] = found_role
                         st.session_state["user_id"] = user_id_input
                         st.rerun()
                     else:
-                        st.error("Access denied. You do not have an assigned role.")
-                
+                        st.error("Access denied. No active roles assigned to this ID.")
+            
             except requests.exceptions.ConnectionError:
-                st.error(
-                    "Unable to connect to the backend. Is the FastAPI server running?"
-                    )
+                st.error("Connection failed. Is the backend server running?")
+            except Exception as e:
+                st.error(f"An unexpected error occurred: {str(e)}")
 
-else:
-    # --- SHOW DASHBOARD UI ---
+def show_admin_dashboard(user_id: str):
+    """Dashboard for Administrative users."""
+    st.sidebar.title("🛠️ Admin Menu")
+    st.sidebar.info(f"**User:** {user_id}")
+    
+    if st.sidebar.button("Logout", use_container_width=True):
+        st.session_state.clear()
+        st.rerun()
+
+    st.title("🚀 Admin Control Center")
+    st.write("You have full visibility and management rights.")
+    
+    st.divider()
+    col1, col2 = st.columns(2)
+    with col1:
+        st.metric("Total Users", "24")
+    with col2:
+        st.metric("Active Invitations", "3")
+        
+    if st.button("Generate System Audit Report"):
+        st.success("Report generated! (Simulated)")
+
+def show_member_dashboard(user_id: str):
+    """Dashboard for standard users."""
+    st.sidebar.title("📋 User Menu")
+    st.sidebar.info(f"**User:** {user_id}")
+    
+    if st.sidebar.button("Logout", use_container_width=True):
+        st.session_state.clear()
+        st.rerun()
+
+    st.title("💼 Member Workspace")
+    st.write("Welcome back to your workspace.")
+    
+    st.info("Your assigned resources and tasks will be listed here.")
+    st.write("Currently, no tasks are pending.")
+
+def main():
+    """Main application entry point."""
+    # Set page configuration once
+    st.set_page_config(page_title="B2B Secure Portal", page_icon="🛡️")
+    
     role = st.session_state["authenticated_role"]
     user = st.session_state["user_id"]
 
-    st.sidebar.title("Navigation")
-    st.sidebar.write(f"**Logged in as:** {user}")
-    st.sidebar.write(f"**Role:** {role.capitalize()}")
-    
-    if st.sidebar.button("Logout"):
-        st.session_state["authenticated_role"] = None
-        st.session_state["user_id"] = None
-        st.rerun()
-
-    st.title(f"{role.capitalize()} Dashboard")
-    
-    if role == "admin":
-        st.subheader("Administrative Overview")
-        st.write(
-            """
-            Welcome to the control center. Here you can manage system-wide settings.
-            """
-            )
-        
-        # Example Admin Widget
-        if st.button("Generate System Audit Report"):
-            st.info("Generating report... (Placeholder)")
-            
+    if role is None:
+        show_login_page()
+    elif role == "admin":
+        show_admin_dashboard(user)
     elif role == "member":
-        st.subheader("Member Workspace")
-        st.write("Welcome back! Here are the resources assigned to you.")
-        
-        # Example Member Widget
-        st.info("No active tasks found.")
+        show_member_dashboard(user)
+    else:
+        st.error("Internal State Error: Unknown Role")
+        if st.button("Reset Session"):
+            st.session_state.clear()
+            st.rerun()
+
+if __name__ == "__main__":
+    main()

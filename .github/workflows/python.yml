@@ -2,7 +2,7 @@ name: Python application
 
 on:
   push:
-    branches: [ "main", "single-tenant-refactor" ]
+    branches: [ "main", "single-tenant-refactor", "streamlit-frontend" ]
   pull_request:
     branches: [ "main" ]
 

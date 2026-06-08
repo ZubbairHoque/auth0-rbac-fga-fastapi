@@ -1,3 +1,4 @@
+from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy import Boolean, Column, String, DateTime, Text
@@ -29,7 +30,7 @@ class ResourceDB(Base):
     name = Column(String, nullable=False, index=True)
     description = Column(Text, nullable=True)
     resource_type = Column(String, nullable=False)
-    created_at = Column(DateTime, server_default=func.now())
+    created_at = Column(DateTime, default=datetime.utcnow)
 
 class InvitationDB(Base):
     __tablename__ = "Invitations"
@@ -39,7 +40,7 @@ class InvitationDB(Base):
     role = Column(String)
     token = Column(String)
     is_used = Column(Boolean, default=False)
-    created_at = Column(DateTime, server_default=func.now())
+    created_at = Column(DateTime, default=datetime.utcnow)
 
 # Database dependency
 async def get_db():

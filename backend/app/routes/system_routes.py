@@ -1,11 +1,12 @@
 import uuid
+from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException, Header, Query, Depends, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.services.authorization_service import authz_service, AuthorizationService
-from app.models.invitation import InvitationCreate, Auth0RegistrationPayLoad
+from app.models.invitation import InvitationCreate, Auth0RegistrationPayLoad, Invitation
 from app.database import InvitationDB, get_db
 from app.utils.security import verify_signature
 from app.config import settings
@@ -71,9 +72,9 @@ async def remove_user_role(
     
     return {"message": f"User {user_id} removed from {role}"}
 
-@router.post("/invite")
-async def invite_user_as_admin(
-    invitation: InvitationCreate,
+@router.post("/invite", response_model=Invitation)
+async def invite_user(
+    invitation_in: InvitationCreate,
     admin_user_id: str = Query(..., description="Admin ID performing the action"),
     authz: AuthorizationService = Depends(get_authz_service),
     db: AsyncSession = Depends(get_db)
@@ -82,10 +83,14 @@ async def invite_user_as_admin(
     if not await authz.check_permission(admin_user_id, "can_manage_users"):
         raise HTTPException(status_code=403, detail="Only admins can send invitations")
     
+    # Explicitly set defaults to ensure Pydantic validation passes even with Mocks
     new_inv = InvitationDB(
-        email=invitation.email, 
-        role=invitation.role, 
-        token=str(uuid.uuid4())
+        id=str(uuid.uuid4()),
+        email=invitation_in.email, 
+        role=invitation_in.role, 
+        token=str(uuid.uuid4()),
+        is_used=False,
+        created_at=datetime.now(timezone.utc)
     )
     
     db.add(new_inv)
