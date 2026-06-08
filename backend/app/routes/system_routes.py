@@ -1,18 +1,38 @@
 import uuid
-
-from fastapi import APIRouter, HTTPException, Query, Depends
+from fastapi import APIRouter, HTTPException, Header, Query, Depends, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+
 from app.services.authorization_service import authz_service, AuthorizationService
 from app.models.invitation import InvitationCreate, Auth0RegistrationPayLoad
 from app.database import InvitationDB, get_db
-from sqlalchemy import select
-
+from app.utils.security import verify_signature
+from app.config import settings
 
 router = APIRouter()
 
 def get_authz_service() -> AuthorizationService:
     return authz_service
+
+# --- SECURITY GUARD ---
+
+async def validate_webhook_signature(
+    request: Request, 
+    x_auth0_signature: str = Header(None)
+):
+    """
+    Bouncer: Checks the signature before the route logic runs.
+    Uses raw request body to ensure integrity.
+    """
+    if not x_auth0_signature:
+        raise HTTPException(status_code=401, detail="Webhook signature missing")
+        
+    body = await request.body()
+    if not verify_signature(body, settings.webhook_signature_secret, x_auth0_signature):
+        raise HTTPException(status_code=403, detail="Invalid webhook signature")
+
+# --- ROUTES ---
 
 class UserAssignment(BaseModel):
     user_id: str = Field(..., description="User ID to assign")
@@ -25,7 +45,6 @@ async def assign_user_role(
     authz: AuthorizationService = Depends(get_authz_service)
 ):
     """Assign a global role to a user (Admin only)."""
-    # Check if the performing user is an admin
     if not await authz.check_permission(admin_user_id, "can_manage_users"):
         raise HTTPException(status_code=403, detail="Only admins can manage users")
     
@@ -59,15 +78,10 @@ async def invite_user_as_admin(
     authz: AuthorizationService = Depends(get_authz_service),
     db: AsyncSession = Depends(get_db)
 ):
-    """Endpoint for new admins"""
-
-    # check if requester is admin
+    """Create a pending invitation for a new user (Admin only)."""
     if not await authz.check_permission(admin_user_id, "can_manage_users"):
-        raise HTTPException(
-            status_code=403, detail="Only admins can send invitations"
-            )
+        raise HTTPException(status_code=403, detail="Only admins can send invitations")
     
-    # create an invitation in the database
     new_inv = InvitationDB(
         email=invitation.email, 
         role=invitation.role, 
@@ -82,40 +96,31 @@ async def invite_user_as_admin(
 @router.post("/auth/webhook/post-registration")
 async def sync_user_to_fga(
     payload: Auth0RegistrationPayLoad,
+    _ = Depends(validate_webhook_signature), # The Guard
     authz: AuthorizationService = Depends(get_authz_service),
     db: AsyncSession = Depends(get_db)
 ):
-    """Webhook to sync new users from Auth0 to FGA."""
-
-    user_id = payload.user_id
-    email = payload.email
-
-    # Check if there's an invitation for this email
-    result = await db.execute(
-        select(InvitationDB).where(InvitationDB.email == email)
-    )
+    """Webhook triggered by Auth0 to sync a new user to FGA after registration."""
     
+    # Check if there's a pending invitation
+    result = await db.execute(
+        select(InvitationDB).where(
+            InvitationDB.email == payload.email,
+            InvitationDB.is_used == False
+        )
+    )
     invitation = result.scalar_one_or_none()
 
     if not invitation:
-        raise HTTPException(
-            status_code=404, detail="No invitation found for this email"
-        )
+        raise HTTPException(status_code=404, detail="No pending invitation found")
 
-    if invitation.is_used:
-        raise HTTPException(
-            status_code=400, detail="Invitation has already been used"
-        )
-
-    # Sync user to FGA with the role from the invitation
-    success = await authz.assign_user_role(user_id, invitation.role)
+    # Assign role in FGA
+    success = await authz.assign_user_role(payload.user_id, invitation.role)
     if not success:
-        raise HTTPException(status_code=500, detail="Failed to assign role in FGA")
+        raise HTTPException(status_code=500, detail="FGA assignment failed")
 
-    # Mark the invitation as used
+    # Finalize invitation
     invitation.is_used = True
     await db.commit()
 
-    return {
-        "message": f"User with email {email} synced to FGA with role {invitation.role}"
-    }
+    return {"message": f"Successfully synced {payload.email} to FGA"}

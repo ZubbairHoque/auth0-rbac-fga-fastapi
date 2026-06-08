@@ -95,7 +95,9 @@ async def test_get_resource_success():
     # 1. Arrange
     mock_db = AsyncMock()
     mock_result = MagicMock()
-    mock_result.scalar_one_or_none.return_value = ResourceDB(id="res1", name="Resource 1", resource_type="api")
+    mock_result.scalar_one_or_none.return_value = ResourceDB(
+        id="res1", name="Resource 1", resource_type="api"
+        )
     mock_db.execute.return_value = mock_result
 
     mock_authz = AsyncMock()
@@ -205,3 +207,5 @@ async def test_delete_resource_forbidden():
         assert response.json()["detail"] == "Admin access required"
     finally:
         app.dependency_overrides = {}
+
+        

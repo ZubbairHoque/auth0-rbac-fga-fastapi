@@ -1,5 +1,4 @@
 from datetime import datetime
-import token
 
 from pydantic import BaseModel
 

@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
 
     # Application Configuration
-    app_title: str = "Auto Texting"
+    app_title: str = "Title name"
     app_version: str = "1.0.0"
     debug: bool = True
     
@@ -23,10 +23,13 @@ class Settings(BaseSettings):
     auth0_fga_api_audience: str = ""
     auth0_fga_api_url: str = ""
 
+    # Signature Secret
+    webhook_signature_secret: str = ""
+
     # Telegram Configuration
     telegram_bot_token: Optional[str] = None
     telegram_chat_id: Optional[str] = None
     
-    model_config = ConfigDict(env_file=".env", case_sensitive=False)
+    model_config = ConfigDict(env_file="/backend/.env", case_sensitive=False)
 
 settings = Settings()
