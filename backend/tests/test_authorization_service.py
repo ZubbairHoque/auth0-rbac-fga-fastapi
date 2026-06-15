@@ -1,7 +1,6 @@
 import pytest
 from unittest.mock import AsyncMock, patch
 
-import pytest_asyncio
 from app.services.authorization_service import authz_service
 
 

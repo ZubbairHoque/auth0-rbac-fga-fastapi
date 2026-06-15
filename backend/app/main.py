@@ -1,9 +1,11 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
 from app.config import settings
-from app.database import init_db
+from app.database import ResourceDB, get_db, init_db
 from app.routes import resource_routes, system_routes, dashboard_routes
 from app.services.authorization_service import authz_service
 
@@ -51,3 +53,10 @@ async def read_root():
         "message": "Welcome to your Single-Tenant Internal App",
         "docs": "/docs"
     }
+
+@app.get("/items")
+async def read_items(db: AsyncSession = Depends(get_db)):
+    """Example endpoint to read items from the database."""
+    result = await db.execute(select(ResourceDB))
+    items = result.scalars().all()
+    return items

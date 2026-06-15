@@ -4,13 +4,11 @@ from app.database import get_db, InvitationDB
 from unittest.mock import AsyncMock, MagicMock
 import pytest
 from app.main import app
-from fastapi.testclient import TestClient
 
-client = TestClient(app)
 tracemalloc.start()
 
 @pytest.mark.asyncio
-async def test_assign_role_success():
+async def test_assign_role_success(client):
     mock_authz = AsyncMock()
     mock_authz.check_permission.return_value = True
     mock_authz.assign_user_role.return_value = True
@@ -19,7 +17,9 @@ async def test_assign_role_success():
 
     try:
         payload = {"user_id": "alice", "role": "admin"}
-        response = client.post("/system/users?admin_user_id=boss", json=payload)
+        response = await client.post(
+            "/system/users?admin_user_id=boss", json=payload
+            )
         
         assert response.status_code == 200
         assert response.json()["message"] == "User alice assigned to admin"
@@ -27,7 +27,7 @@ async def test_assign_role_success():
         app.dependency_overrides = {}
 
 @pytest.mark.asyncio
-async def test_assign_role_forbidden():
+async def test_assign_role_forbidden(client):
     mock_authz = AsyncMock()
     mock_authz.check_permission.return_value = False
     
@@ -35,17 +35,21 @@ async def test_assign_role_forbidden():
 
     try:
         payload = {"user_id": "alice", "role": "admin"}
-        response = client.post("/system/users?admin_user_id=notadmin", json=payload)
+        response = await client.post(
+            "/system/users?admin_user_id=notadmin", json=payload
+            )
         
         assert response.status_code == 403
     finally:
         app.dependency_overrides = {}
 
 @pytest.mark.asyncio
-async def test_invite_user_success():
+async def test_invite_user_success(client):
     mock_authz = AsyncMock()
     mock_db = AsyncMock()
-    mock_db.add = MagicMock() # Sync mock
+
+    mock_db.add = MagicMock() 
+    mock_db.commit = AsyncMock()
     
     mock_authz.check_permission.return_value = True
 
@@ -54,7 +58,9 @@ async def test_invite_user_success():
     
     try:
         payload = {"email": "test@example.com", "role": "admin"}
-        response = client.post("/system/invite?admin_user_id=boss", json=payload)
+        response = await client.post(
+            "/system/invite?admin_user_id=boss", json=payload
+            )
         
         assert response.status_code == 200
         mock_db.add.assert_called_once()
@@ -63,10 +69,13 @@ async def test_invite_user_success():
         app.dependency_overrides = {}
 
 @pytest.mark.asyncio
-async def test_webhook_sync_success():
+async def test_webhook_sync_success(client):
     mock_webhook_guard = AsyncMock()
     mock_authz = AsyncMock()
-    mock_db = AsyncMock()
+    mock_db = MagicMock()
+
+    mock_db.commit = AsyncMock()
+    mock_db.execute =  AsyncMock()
     
     # 1. Mock DB finding an invitation
     mock_invitation = MagicMock(spec=InvitationDB)
@@ -88,7 +97,7 @@ async def test_webhook_sync_success():
     
     try:
         payload = {"email": "test@example.com", "user_id": "auth0|123"}
-        response = client.post(
+        response = await client.post(
             "/system/auth/webhook/post-registration", json=payload
             )
         
@@ -103,7 +112,7 @@ async def test_webhook_sync_success():
         app.dependency_overrides = {}
 
 @pytest.mark.asyncio
-async def test_webhook_sync_no_invitation():
+async def test_webhook_sync_no_invitation(client):
     mock_webhook_guard = AsyncMock() # Need the bouncer bypass!
     mock_authz = AsyncMock()
     mock_db = AsyncMock()
@@ -118,7 +127,7 @@ async def test_webhook_sync_no_invitation():
     
     try:
         payload = {"email": "stranger@example.com", "user_id": "auth0|123"}
-        response = client.post(
+        response = await client.post(
             "/system/auth/webhook/post-registration", json=payload
             )
 

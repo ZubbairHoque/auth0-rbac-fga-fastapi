@@ -1,13 +1,52 @@
-import asyncio
-import sys
-import selectors
+from httpx import ASGITransport, AsyncClient
 import pytest
+from sqlalchemy import StaticPool
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from app.database import Base  # Import your SQLAlchemy declarative Base
+from app.main import app
 
-# Senior Fix: Force the SelectorEventLoop for the entire process on Windows.
-# This must happen before any event loops are created.
-if sys.platform == "win32":
-    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+# Use an in-memory SQLite database for fast testing
+TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
+
+@pytest.fixture(scope="session")
+async def db_engine():
+    """Creates a single database engine for the entire test session."""
+    engine = create_async_engine(
+        TEST_DATABASE_URL, 
+        poolclass=StaticPool, 
+        connect_args={"check_same_thread": False}
+        )
+    
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    yield engine
+    await engine.dispose()
+
+@pytest.fixture
+async def db_session(db_engine):
+    """
+    Provides a modern transactional database session for a single test function.
+    """
+
+    # Create a sessionmaker bound directly to the engine
+    async_session = async_sessionmaker(
+        db_engine, class_=AsyncSession, expire_on_commit=False
+        )
+
+    # Instantiate the session
+    async with async_session() as session:   
+    # Start a transaction that automatically rolls back at the end of the block
+    
+        yield session
+        
+        await session.rollback()
+
+@pytest.fixture(scope="module")
+async def client():
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        yield ac
 
 @pytest.fixture(scope="session")
 def anyio_backend():
-    return "asyncio"
+    return "asyncio", {"use_selector": True}
