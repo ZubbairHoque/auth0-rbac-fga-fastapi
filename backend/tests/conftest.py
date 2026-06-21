@@ -1,3 +1,7 @@
+# pyrefly: ignore [missing-import]
+from unittest.mock import MagicMock
+from unittest.mock import patch
+import time
 from httpx import ASGITransport, AsyncClient
 import pytest
 from sqlalchemy import StaticPool
@@ -50,3 +54,20 @@ async def client():
 @pytest.fixture(scope="session")
 def anyio_backend():
     return "asyncio", {"use_selector": True}
+
+import jwt
+
+@pytest.fixture
+@patch("app.utils.security.jwt.encode")
+def test_token() -> str:
+    mock_signing_key=MagicMock()
+    mock_signing_key.private_key="fakekey"
+    payload = {
+        "aud": "http://test.audience.com",
+        "sub": "user123",
+        "iss": "http://test.issuer.com",
+        "exp": time.time() + 600,
+    }
+    return jwt.encode(payload, mock_signing_key.private_key, algorithm="RS256")
+
+

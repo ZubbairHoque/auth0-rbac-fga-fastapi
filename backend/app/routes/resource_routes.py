@@ -1,5 +1,5 @@
 import uuid
-from fastapi import APIRouter, HTTPException, Query, Depends
+from fastapi import APIRouter, HTTPException, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import List
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -8,10 +8,13 @@ from sqlalchemy import select
 from app.models.resource import Resource, ResourceCreate
 from app.database import get_db, ResourceDB
 from app.services.authorization_service import authz_service, AuthorizationService
+from app.utils.security import verify_auth0_token
 
 router = APIRouter()
 
 security = HTTPBearer()
+
+
 
 def get_authz_service() -> AuthorizationService:
     return authz_service
@@ -25,8 +28,15 @@ async def get_current_user(
     In a real app, you'd verify the token and extract claims.
     """
 
-    # Extract Credentials from token
-    return token.credentials
+    # Decode the token
+    payload = await verify_auth0_token(token.credentials)
+
+    if not payload:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    user_id = payload.get("sub")
+
+    return user_id    
 
 @router.get("/", response_model=List[Resource])
 async def list_resources(

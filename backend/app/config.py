@@ -1,7 +1,7 @@
-import os
 from pydantic import ConfigDict
 from pydantic_settings import BaseSettings
 from typing import Optional
+
 
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     database_url: str = "sqlite+aiosqlite:///./app.db"
     
     # Auth0 FGA Configuration
+    auth0_fga_domain: str = ""
     auth0_fga_store_id: str = ""
     auth0_fga_client_id: str = ""
     auth0_fga_client_secret: str = ""   
@@ -25,11 +26,12 @@ class Settings(BaseSettings):
 
     # Signature Secret
     webhook_signature_secret: str = ""
+    algorithm: str = "RS256"
 
     # Telegram Configuration
     telegram_bot_token: Optional[str] = None
     telegram_chat_id: Optional[str] = None
     
-    model_config = ConfigDict(env_file="/backend/.env", case_sensitive=False)
+    model_config = ConfigDict(env_file=".env", case_sensitive=False)
 
 settings = Settings()

@@ -55,7 +55,9 @@ async def test_resource_db_model(db_session):
     await db_session.commit()
     
     # Retrieve
-    result = await db_session.execute(select(ResourceDB).where(ResourceDB.id == resource_id))
+    result = await db_session.execute(
+        select(ResourceDB).where(ResourceDB.id == resource_id)
+        )
     retrieved_resource = result.scalar_one_or_none()
     
     assert retrieved_resource is not None

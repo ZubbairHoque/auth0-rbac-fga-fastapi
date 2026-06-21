@@ -1,10 +1,51 @@
-import json
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, patch
 import pytest
 from sqlalchemy import select
 from app.database import ResourceDB, get_db
 from app.main import app
 from app.routes.resource_routes import get_authz_service, get_current_user
+
+from fastapi.security import HTTPAuthorizationCredentials
+from fastapi.exceptions import HTTPException
+
+@pytest.mark.asyncio
+@patch("app.routes.resource_routes.verify_auth0_token")
+async def test_get_current_user_success(mock_verify_auth0_token):
+    # 1. Arrange: Create a mock payload dictionary and configure mock
+    mock_payload = {"sub": "user123"}
+    mock_verify_auth0_token.return_value = mock_payload
+
+    # 2. Act: Call get_current_user directly with HTTPAuthorizationCredentials
+    credentials = HTTPAuthorizationCredentials(
+        scheme="Bearer", credentials="fake_token_string"
+        )
+    
+    result = await get_current_user(credentials)
+
+    # 3. Assert
+    assert result == "user123"
+    mock_verify_auth0_token.assert_called_once_with("fake_token_string")
+
+@pytest.mark.asyncio
+@patch("app.routes.resource_routes.verify_auth0_token")
+async def test_get_current_user_fail(mock_verify_auth0_token):
+    # 1. Arrange: Create a mock payload dictionary and configure mock
+    mock_payload = None
+    mock_verify_auth0_token.return_value = mock_payload
+
+    # 2. Act: Call get_current_user directly with HTTPAuthorizationCredentials
+    credentials = HTTPAuthorizationCredentials(
+        scheme="Bearer", credentials="fake_token_string"
+        )
+
+    with pytest.raises(HTTPException) as exc_info:
+        await get_current_user(credentials)
+    
+    # 3. Assert
+    assert exc_info.value.status_code == 401
+    assert exc_info.value.detail == "Invalid token"
+
+
 
 # Fixture to create a client for our async backend
 
@@ -64,6 +105,7 @@ async def test_get_resource_not_found(client, db_session):
     finally:
         app.dependency_overrides = {}
 
+
 @pytest.mark.asyncio
 async def test_get_resource_forbidden(client, db_session):
 
@@ -101,6 +143,7 @@ async def test_get_resource_forbidden(client, db_session):
         assert result.scalar_one_or_none() is not None
     finally:
         app.dependency_overrides = {}
+
 
 @pytest.mark.asyncio
 async def test_create_resource_success(client, db_session):
@@ -200,6 +243,7 @@ async def test_delete_resource_success(client, db_session):
     finally:
         app.dependency_overrides = {}
 
+
 @pytest.mark.asyncio
 async def test_delete_resource_not_found(client, db_session):
 
@@ -219,6 +263,7 @@ async def test_delete_resource_not_found(client, db_session):
         assert response.json()["detail"] == "Resource not found"
     finally:
         app.dependency_overrides = {}
+
 
 @pytest.mark.asyncio
 async def test_delete_resource_forbidden(client, db_session):

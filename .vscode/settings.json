@@ -1,4 +1,9 @@
 {
   "python.defaultInterpreterPath": "python",
-  "github-actions.workflows.pinned.workflows": [".github/workflows/python.yml"]
+  "python.analysis.extraPaths": [
+    "./venv/Lib/site-packages"
+  ],
+  "github-actions.workflows.pinned.workflows": [
+    ".github/workflows/python.yml"
+  ]
 }

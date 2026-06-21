@@ -1,8 +1,13 @@
+import logging
 from typing import List, Optional
+from openfga_sdk import ApiException
 from openfga_sdk.client.models import ClientTuple
 from app.utils.auth0_fga_client import fga_client
 
 ROLES = ["admin", "member"]
+
+logger = logging.getLogger(__name__)
+
 
 class AuthorizationService:
     """
@@ -58,15 +63,33 @@ class AuthorizationService:
         
         """
         Check if user is allowed to perform an action on a resource or the system.
+        Fails closed (returns False) if any service or network error occurs.
         """
 
-        target_obj = f"resource:{resource_id}" if resource_id else self.SYSTEM_OBJ
+        try:
+
+            target_obj = f"resource:{resource_id}" if resource_id else self.SYSTEM_OBJ
+            
+            return await fga_client.check_permission(
+                user=f"user:{user_id}",
+                relation=action,
+                object_id=target_obj
+            )
+
+
+        except ApiException as e:
+            # Captures 4xx/5xx responses from the OpenFGA server
+            logger.error(
+                f"OpenFGA API Exception during permission check: {e.status} - {e.reason}"
+                )
+            return False
+
+        except Exception as e:
+            # Captures timeouts, connection drops, and configuration issues
+            logger.error(f"Unexpected error communicating with OpenFGA: {str(e)}")
+            return False
+
         
-        return await fga_client.check_permission(
-            user=f"user:{user_id}",
-            relation=action,
-            object_id=target_obj
-        )
     
     async def validate_dashboard_access(
             self, user_id: str, dashboard_type: str,
