@@ -1,9 +1,11 @@
 from datetime import UTC, datetime
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase
-from sqlalchemy import Boolean, Column, StaticPool, String, DateTime, Text
+from sqlalchemy import Boolean, Column, Enum, StaticPool, String, DateTime, Text
 from app.config import settings
 from sqlalchemy.sql import func
+
+from app.models.member import MemberStatus
 
 # Create async engine
 engine = create_async_engine(
@@ -41,6 +43,21 @@ class InvitationDB(Base):
     token = Column(String)
     is_used = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+
+class MemberDB(Base):
+    __tablename__ = "members"
+
+    id = Column(String, primary_key=True, index=True)
+    email = Column(String, unique=True, nullable=False, index=True)
+    auth0_user_id = Column(String, unique=True, nullable=True, index=True)
+    role = Column(String, nullable=False)
+    status = Column(Enum(MemberStatus), nullable=False, default=MemberStatus.invited, index=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+    updated_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+    )
 
 # Database dependency
 async def get_db():

@@ -26,6 +26,8 @@ async def db_engine():
     yield engine
     await engine.dispose()
 
+# todo - swap to savepoint rollback instead of manual rollback
+
 @pytest.fixture
 async def db_session(db_engine):
     """
@@ -37,13 +39,18 @@ async def db_session(db_engine):
         db_engine, class_=AsyncSession, expire_on_commit=False
         )
 
-    # Instantiate the session
-    async with async_session() as session:   
-    # Start a transaction that automatically rolls back at the end of the block
-    
+     # Establish a connection to manage the outer transaction
+    async with async_session() as session:
+        for table in reversed(Base.metadata.sorted_tables):
+            await session.execute(table.delete())
+
         yield session
-        
+
         await session.rollback()
+
+        for table in reversed(Base.metadata.sorted_tables):
+            await session.execute(table.delete())
+        await session.commit()
 
 @pytest.fixture(scope="module")
 async def client():

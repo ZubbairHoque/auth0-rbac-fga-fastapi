@@ -7,9 +7,10 @@ from sqlalchemy import select
 
 from app.services.authorization_service import authz_service, AuthorizationService
 from app.models.invitation import InvitationCreate, Auth0RegistrationPayLoad, Invitation
-from app.database import InvitationDB, get_db
+from app.database import MemberDB, InvitationDB, get_db
 from app.utils.security import verify_signature
 from app.config import settings
+from app.models.member import Member, MemberStatus
 
 router = APIRouter()
 
@@ -129,3 +130,20 @@ async def sync_user_to_fga(
     await db.commit()
 
     return {"message": f"Successfully synced {payload.email} to FGA"}
+
+@router.get("/members", response_model=list[Member])
+async def get_members(
+    admin_user_id: str = Query(..., description="Admin ID performing the action"),
+    authz: AuthorizationService = Depends(get_authz_service),
+    db: AsyncSession = Depends(get_db)
+):
+    """Get a list of members (Admin only)."""
+    if not await authz.check_permission(admin_user_id, "can_manage_users"):
+        raise HTTPException(status_code=403, detail="Only admins can manage users")
+
+    # Get all users who aren't labeled as removed
+    query = select(MemberDB).where(MemberDB.status  != MemberStatus.removed) # Removed members stay in the table for history but are hidden from the dashboard list.
+    result = await db.execute(query)
+    members = result.scalars().all()
+
+    return members
