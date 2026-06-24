@@ -94,10 +94,26 @@ async def invite_user(
         created_at=datetime.now(timezone.utc)
     )
     
-    db.add(new_inv)
+    db.add(new_inv)    
+
+    # create new member
+
+    new_member = MemberDB(
+        id=str(uuid.uuid4()),
+        email=new_inv.email,
+        role=new_inv.role,
+        status=MemberStatus.invited
+    )
+    
+    db.add(new_member)
+
     await db.commit()
     await db.refresh(new_inv)
-    return new_inv 
+    
+    return new_inv
+
+
+
 
 @router.post("/auth/webhook/post-registration")
 async def sync_user_to_fga(

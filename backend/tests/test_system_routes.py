@@ -46,25 +46,75 @@ async def test_assign_role_forbidden(client):
         app.dependency_overrides = {}
 
 @pytest.mark.asyncio
+async def test_remove_user_role_sucess(client):
+    mock_authz = AsyncMock()
+    mock_authz.check_permission.return_value = True
+    mock_authz.remove_user_role.return_value = True
+    
+    app.dependency_overrides[get_authz_service] = lambda: mock_authz
+
+    try:
+        response = await client.delete(
+            "/system/users/alice?role=admin&admin_user_id=boss"
+            )
+
+        assert response.status_code == 200
+        assert response.json()["message"] == "User alice removed from admin"
+    finally:
+        app.dependency_overrides = {}
+
+@pytest.mark.asyncio
 async def test_invite_user_success(client, db_session):
     mock_authz = AsyncMock()
-    
+
     mock_authz.check_permission.return_value = True
 
     app.dependency_overrides[get_authz_service] = lambda: mock_authz
     app.dependency_overrides[get_db] = lambda: db_session
-    
+
     try:
-        payload = {"email": "test@example.com", "role": "admin"}
+        payload = {"email": "alice@example.com", "role": "admin"}
         response = await client.post(
-            "/system/invite?admin_user_id=boss", json=payload
+            "/system/invite?admin_user_id=boss",
+            json=payload
             )
-        
+
         assert response.status_code == 200
+
+        body = response.json()
+        assert body["email"] == "alice@example.com"
+        assert body["role"] == "admin"
+        assert body["is_used"] is False
+
+        result_invitation = await db_session.execute(
+            select(InvitationDB).where(
+                InvitationDB.email == "alice@example.com"
+            )
+        )
+
+        invitation = result_invitation.scalar_one_or_none()
+
+        result_member = await db_session.execute(
+            select(MemberDB).where(
+                MemberDB.email == "alice@example.com"
+            )
+        )
+
+        member = result_member.scalar_one_or_none()
+
+        assert invitation is not None
+        assert invitation.email == "alice@example.com"
+        assert invitation.role == "admin"
+        assert invitation.is_used is False
+
+        assert member is not None
+        assert member.email == "alice@example.com"
+        assert member.role == "admin"
+        assert member.status == MemberStatus.invited
 
     finally:
         app.dependency_overrides = {}
-
+        
 @pytest.mark.asyncio
 async def test_webhook_sync_success(client, db_session):
     mock_webhook_guard = AsyncMock()
@@ -86,10 +136,10 @@ async def test_webhook_sync_success(client, db_session):
     app.dependency_overrides[get_db] = lambda: db_session
     
     try:
-        payload = {"email": "test@example.com", "user_id": "auth0|123"}
 
         response = await client.post(
-            "/system/auth/webhook/post-registration", json=payload
+            "/system/auth/webhook/post-registration",
+            json={"user_id": "auth0|123", "email": "test@example.com"}
         )
 
         assert response.status_code == 200
