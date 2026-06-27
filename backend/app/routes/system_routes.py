@@ -1,3 +1,5 @@
+from sqlalchemy import update
+from httpx import delete
 import uuid
 from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException, Header, Query, Depends, Request
@@ -49,29 +51,56 @@ async def assign_user_role(
     """Assign a global role to a user (Admin only)."""
     if not await authz.check_permission(admin_user_id, "can_manage_users"):
         raise HTTPException(status_code=403, detail="Only admins can manage users")
-    
+        
+    # assign user privilege
     success = await authz.assign_user_role(assignment.user_id, assignment.role)
     if not success:
         raise HTTPException(status_code=500, detail="Failed to assign role")
     
     return {"message": f"User {assignment.user_id} assigned to {assignment.role}"}
 
-@router.delete("/users/{user_id}")
+@router.delete("/members/{member_id}")
 async def remove_user_role(
-    user_id: str,
+    member_id: str,
     role: str = Query(..., description="Role to remove ('admin' or 'member')"),
     admin_user_id: str = Query(..., description="Admin ID performing the action"),
+    db: AsyncSession = Depends(get_db),
     authz: AuthorizationService = Depends(get_authz_service)
 ):
     """Remove a global role from a user (Admin only)."""
     if not await authz.check_permission(admin_user_id, "can_manage_users"):
         raise HTTPException(status_code=403, detail="Only admins can manage users")
+
+    # check if there is a member 
+    member = await db.scalar(
+        select(MemberDB).where(MemberDB.id == member_id)
+    )
+
+    if not member:
+        raise HTTPException(status_code=404, detail="Member not found")
+
+    if member.status == MemberStatus.active:
+        member.status = MemberStatus.removed
+
+        await authz.remove_user_role(member.auth0_user_id, member.role)
+
+    elif member.status == MemberStatus.invited:
+        member.status = MemberStatus.removed
+
+    # if member is already removed, raise error
+    elif member.status == MemberStatus.removed:
+        raise HTTPException(
+            status_code=400, detail="Member is already removed"
+        )
+
+    else:
+        raise HTTPException(
+            status_code=400, detail="Invalid member status"
+        )
+
+    await db.commit()
     
-    success = await authz.remove_user_role(user_id, role)
-    if not success:
-        raise HTTPException(status_code=500, detail="Failed to remove role")
-    
-    return {"message": f"User {user_id} removed from {role}"}
+    return {"message": f"User {member_id} removed from {role}"}
 
 @router.post("/invite", response_model=Invitation)
 async def invite_user(
@@ -81,8 +110,11 @@ async def invite_user(
     db: AsyncSession = Depends(get_db)
 ):
     """Create a pending invitation for a new user (Admin only)."""
+
+    # check for admin role
     if not await authz.check_permission(admin_user_id, "can_manage_users"):
-        raise HTTPException(status_code=403, detail="Only admins can send invitations")
+        raise HTTPException(status_code=403, detail="Only admins can send invitations")    
+
     
     # Explicitly set defaults to ensure Pydantic validation passes even with Mocks
     new_inv = InvitationDB(
@@ -113,8 +145,6 @@ async def invite_user(
     return new_inv
 
 
-
-
 @router.post("/auth/webhook/post-registration")
 async def sync_user_to_fga(
     payload: Auth0RegistrationPayLoad,
@@ -143,6 +173,21 @@ async def sync_user_to_fga(
 
     # Finalize invitation
     invitation.is_used = True
+    
+    # find member details
+    result_mem = await db.execute(
+        select(MemberDB).where(MemberDB.email == payload.email)
+    )
+    member = result_mem.scalar_one_or_none()
+    
+    if not member:
+        # do the FGA assignment and mark the invitation used without error
+        await db.commit()
+        return {"message": f"Successfully synced {payload.email} to FGA"}
+    
+    # update member
+    member.auth0_user_id = payload.user_id
+    member.status = MemberStatus.active
     await db.commit()
 
     return {"message": f"Successfully synced {payload.email} to FGA"}

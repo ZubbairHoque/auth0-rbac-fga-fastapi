@@ -1,3 +1,5 @@
+from sqlalchemy.orm import mapped_column
+from sqlalchemy.orm import Mapped
 from datetime import UTC, datetime
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase
@@ -39,19 +41,22 @@ class InvitationDB(Base):
 
     id = Column(String, primary_key=True, index=True)
     email = Column(String, unique=True)
-    role = Column(String)
+    role: Mapped[str] = mapped_column(String)
     token = Column(String)
-    is_used = Column(Boolean, default=False)
+    is_used: Mapped[bool] = mapped_column(Boolean)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
+# todo: think about what happens to admins when they are created or the superadmin:
+# - Do they get added to the memberdb?
+# - Do they need to be?
 class MemberDB(Base):
     __tablename__ = "members"
 
     id = Column(String, primary_key=True, index=True)
     email = Column(String, unique=True, nullable=False, index=True)
-    auth0_user_id = Column(String, unique=True, nullable=True, index=True)
-    role = Column(String, nullable=False)
-    status = Column(Enum(MemberStatus), nullable=False, default=MemberStatus.invited, index=True)
+    auth0_user_id: Mapped[str] = mapped_column(String, unique=True, nullable=True, index=True)
+    role: Mapped[str ] = mapped_column(String, nullable=True)
+    status: Mapped[str] = mapped_column(Enum(MemberStatus), nullable=False, default=MemberStatus.invited, index=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
     updated_at = Column(
         DateTime(timezone=True),

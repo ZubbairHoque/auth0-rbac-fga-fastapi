@@ -1,9 +1,10 @@
+from app.models.member import MemberBase
 import tracemalloc
 from app.routes.system_routes import get_authz_service, validate_webhook_signature
 from app.database import get_db, InvitationDB, MemberDB
 from app.models.member import MemberStatus
 from sqlalchemy import select
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from app.main import app
 
@@ -46,20 +47,157 @@ async def test_assign_role_forbidden(client):
         app.dependency_overrides = {}
 
 @pytest.mark.asyncio
-async def test_remove_user_role_sucess(client):
+async def test_remove_user_role_for_active_user_success( client, db_session):
     mock_authz = AsyncMock()
     mock_authz.check_permission.return_value = True
+
+    db_session.add(
+        MemberDB(
+            id="mem-1",
+            email="alice@example.com", 
+            role="admin", 
+            status=MemberStatus.active,
+            auth0_user_id="alice"
+        )
+    )
+
+    await db_session.commit()
+
+    member = await db_session.execute(
+        select(MemberDB).where(MemberDB.email == "alice@example.com")
+    )
+    member = member.scalar_one_or_none()
+    
     mock_authz.remove_user_role.return_value = True
+    
+    app.dependency_overrides[get_authz_service] = lambda: mock_authz
+    app.dependency_overrides[get_db] = lambda: db_session
+
+    try:
+        response = await client.delete(
+            f"/system/members/{member.id}?role=admin&admin_user_id=boss"
+            )
+
+        assert response.status_code == 200
+        
+        assert member.status == MemberStatus.removed
+
+        assert response.json()["message"] == f"User {member.id} removed from {member.role}"
+    finally:
+        app.dependency_overrides = {}
+
+@pytest.mark.asyncio
+async def test_remove_user_role_for_invited_user_success(
+    client, db_session
+):
+    mock_authz = AsyncMock()
+    mock_authz.check_permission.return_value = True
+
+    db_session.add(
+        MemberDB(
+            id="mem-1",
+            email="alice@example.com", 
+            role="admin", 
+            status=MemberStatus.invited,
+            auth0_user_id="alice"
+        )
+    )
+
+    await db_session.commit()
+
+    member = await db_session.execute(
+        select(MemberDB).where(MemberDB.email == "alice@example.com")
+    )
+    member = member.scalar_one_or_none()
+        
+    app.dependency_overrides[get_authz_service] = lambda: mock_authz
+    app.dependency_overrides[get_db] = lambda: db_session
+
+    try:
+        response = await client.delete(
+            f"/system/members/{member.id}?role=admin&admin_user_id=boss"
+            )
+
+        assert response.status_code == 200
+        
+        assert member.status == MemberStatus.removed
+
+        await mock_authz.remove_user_role.assert_called_once_with()
+
+        assert response.json()["message"] == f"User {member.id} removed from {member.role}"
+    finally:
+        app.dependency_overrides = {}
+
+@pytest.mark.asyncio
+async def test_remove_user_role_for_removed_user_fail( client, db_session):
+    mock_authz = AsyncMock()
+    mock_authz.check_permission.return_value = True
+
+    db_session.add(
+        MemberDB(
+            id="mem-1",
+            email="alice@example.com", 
+            role="admin", 
+            status=MemberStatus.removed,
+            auth0_user_id="alice"
+        )
+    )
+
+    await db_session.commit()
+
+    member = await db_session.execute(
+        select(MemberDB).where(MemberDB.email == "alice@example.com")
+    )
+    member = member.scalar_one_or_none()
+    
+    mock_authz.remove_user_role.return_value = True
+    
+    app.dependency_overrides[get_authz_service] = lambda: mock_authz
+    app.dependency_overrides[get_db] = lambda: db_session
+
+    try:
+        response = await client.delete(
+            f"/system/members/{member.id}?role=admin&admin_user_id=boss"
+            )
+
+        assert response.status_code == 400
+        assert response.json()["detail"] == "Member is already removed"
+    finally:
+        app.dependency_overrides = {}
+
+@pytest.mark.asyncio
+async def test_remove_user_not_found(client, db_session):
+    mock_authz = AsyncMock()
+    mock_authz.check_permission.return_value = True
+    
+    app.dependency_overrides[get_authz_service] = lambda: mock_authz
+    app.dependency_overrides[get_db] = lambda: db_session
+
+    try:
+        response = await client.delete(
+            "/system/members/notmember?role=admin&admin_user_id=boss"
+            )
+
+        assert response.status_code == 404
+        assert response.json()["detail"] == "Member not found"
+    finally:
+        app.dependency_overrides = {}
+
+@pytest.mark.asyncio
+async def test_remove_user_forbidden(client):
+    mock_authz = AsyncMock()
+    mock_authz.check_permission.return_value = False
+    mock_authz.remove_user_role.return_value = False
     
     app.dependency_overrides[get_authz_service] = lambda: mock_authz
 
     try:
         response = await client.delete(
-            "/system/users/alice?role=admin&admin_user_id=boss"
+            "/system/members/notmember?role=admin&admin_user_id=boss"
             )
 
-        assert response.status_code == 200
-        assert response.json()["message"] == "User alice removed from admin"
+        assert response.status_code == 403
+        assert response.json()["detail"] == "Only admins can manage users"
     finally:
         app.dependency_overrides = {}
 
@@ -77,7 +215,7 @@ async def test_invite_user_success(client, db_session):
         response = await client.post(
             "/system/invite?admin_user_id=boss",
             json=payload
-            )
+        )
 
         assert response.status_code == 200
 
@@ -125,12 +263,15 @@ async def test_webhook_sync_success(client, db_session):
         id="inv1", email="test@example.com", role="admin", is_used=False)
     )
 
+    # 2. Mock DB member being given access to members dashboard
+
+
     await db_session.commit()
     
-    # 2. Mock FGA success
+    # 3. Mock FGA success
     mock_authz.assign_user_role.return_value = True
 
-    # 3. Bypass the Bouncer
+    # 4. Bypass the Bouncer
     app.dependency_overrides[validate_webhook_signature] = lambda: mock_webhook_guard    
     app.dependency_overrides[get_authz_service] = lambda: mock_authz
     app.dependency_overrides[get_db] = lambda: db_session
@@ -179,7 +320,7 @@ async def test_webhook_sync_no_invitation(client, db_session):
         payload = {"email": "stranger@example.com", "user_id": "auth0|123"}
         response = await client.post(
             "/system/auth/webhook/post-registration", json=payload
-            )
+        )
 
         # Should be 404 (Not Found), not 401 (Unauthorized)
         assert response.status_code == 404

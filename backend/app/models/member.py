@@ -1,3 +1,6 @@
+from sqlalchemy import String
+from sqlalchemy.orm import mapped_column
+from sqlalchemy.orm import Mapped
 from datetime import datetime
 from enum import StrEnum
 from typing import Literal, Optional
@@ -8,7 +11,7 @@ Role = Literal["admin", "member"]
 
 class MemberBase(BaseModel):
     email: str = Field(..., min_length=3)
-    role: Role
+    role: Role  
 
 class MemberStatus(StrEnum):
     invited = "invited"

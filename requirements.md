@@ -19,7 +19,9 @@ This feature completes the admin member management flow for a single-tenant Fast
 
 ## Requirements
 
-### Requirement 1: Fix POST /system/invite Response
+### ✅ Requirement 1: Fix POST /system/invite Response
+
+> Completed: `/invite` now returns a single `Invitation` (role from body only) and creates a matching `MemberDB(status=invited)`; verified by `test_invite_user_success`.
 
 **User Story:** As an admin, I want to invite a new user by email and role, so that they receive a pending invitation and appear in the member list.
 
@@ -32,7 +34,9 @@ This feature completes the admin member management flow for a single-tenant Fast
 
 ---
 
-### Requirement 2: Fix Webhook Member Activation
+### ✅ Requirement 2: Fix Webhook Member Activation
+
+> Completed: Webhook updates invitation and member in a single transaction, and handles missing member records gracefully without error.
 
 **User Story:** As a new user who registered via an invite link, I want my account to be activated automatically, so that I appear as an active member in the admin dashboard.
 
@@ -45,7 +49,9 @@ This feature completes the admin member management flow for a single-tenant Fast
 
 ---
 
-### Requirement 3: Add DELETE /system/members/{member_id}
+### ✅ Requirement 3: Add DELETE /system/members/{member_id}
+
+> Completed: Added route with proper status handling for active/invited members, omitting FGA calls for unassigned users, and enforcing soft-delete.
 
 **User Story:** As an admin, I want to remove a member from the system, so that they lose access and the dashboard reflects their removal.
 
@@ -60,7 +66,9 @@ This feature completes the admin member management flow for a single-tenant Fast
 
 ---
 
-### Requirement 4: Fix Test Suite
+### ✅ Requirement 4: Fix Test Suite
+
+> Completed: Fixed async test session hygiene and added full coverage for DELETE /system/members endpoints including active, invited, 404, and 403 scenarios.
 
 **User Story:** As a developer, I want a passing test suite, so that regressions are caught automatically.
 

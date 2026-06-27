@@ -1,3 +1,5 @@
+from openfga_sdk.models import list_users_request
+from openfga_sdk.models import list_users_request
 import uuid
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -31,10 +33,10 @@ async def get_current_user(
     # Decode the token
     payload = await verify_auth0_token(token.credentials)
 
-    if not payload:
-        raise HTTPException(status_code=401, detail="Invalid token")
-
     user_id = payload.get("sub")
+
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Invalid token")
 
     return user_id    
 
