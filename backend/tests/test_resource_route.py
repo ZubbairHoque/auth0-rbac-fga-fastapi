@@ -18,25 +18,26 @@ async def test_get_current_user_success(mock_verify_auth0_token):
     # 2. Act: Call get_current_user directly with HTTPAuthorizationCredentials
     credentials = HTTPAuthorizationCredentials(
         scheme="Bearer", credentials="fake_token_string"
-        )
+    )
     
     result = await get_current_user(credentials)
+    
 
     # 3. Assert
     assert result == "user123"
     mock_verify_auth0_token.assert_called_once_with("fake_token_string")
 
 @pytest.mark.asyncio
-@patch("app.routes.resource_routes.verify_auth0_token")
+@patch("app.routes.resource_routes.verify_auth0_token", new_callable=AsyncMock)
 async def test_get_current_user_fail(mock_verify_auth0_token):
     # 1. Arrange: Create a mock payload dictionary and configure mock
-    mock_payload = None
+    mock_payload = {}
     mock_verify_auth0_token.return_value = mock_payload
 
     # 2. Act: Call get_current_user directly with HTTPAuthorizationCredentials
     credentials = HTTPAuthorizationCredentials(
         scheme="Bearer", credentials="fake_token_string"
-        )
+    )
 
     with pytest.raises(HTTPException) as exc_info:
         await get_current_user(credentials)
