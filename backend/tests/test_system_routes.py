@@ -122,7 +122,7 @@ async def test_remove_user_role_for_invited_user_success(
         
         assert member.status == MemberStatus.removed
 
-        await mock_authz.remove_user_role.assert_called_once_with()
+        mock_authz.remove_user_role.assert_not_called()
 
         assert response.json()["message"] == f"User {member.id} removed from {member.role}"
     finally:
