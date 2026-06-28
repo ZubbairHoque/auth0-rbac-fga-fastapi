@@ -16,8 +16,6 @@ router = APIRouter()
 
 security = HTTPBearer()
 
-
-
 def get_authz_service() -> AuthorizationService:
     return authz_service
 

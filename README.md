@@ -140,17 +140,94 @@ fastapi-openfga-project/
 
 ## Setup
 
-### Backend
+### Initial Setup (First Time Only)
+
+**Create the virtual environment at the project root:**
+
+```powershell
+# From project root
+uv venv .venv
+```
+
+**Activate the virtual environment:**
+
+```powershell
+# Windows PowerShell
+.\.venv\Scripts\Activate.ps1
+
+# macOS/Linux
+source .venv/bin/activate
+```
+
+**Install backend dependencies:**
+
+```powershell
+# With venv activated, from project root
+uv sync --project backend --active --inexact
+```
+
+**Configure backend:**
 
 ```bash
 cd backend
 cp .env.example .env
 # Fill in Auth0 FGA credentials in .env
-uv sync
-uv run uvicorn app.main:app --reload
 ```
 
-### Frontend
+### Virtual Environment Management
+
+**⚠️ Important: This project uses a single `.venv` at the project root.**
+
+**Activate from project root:**
+
+```powershell
+# Windows
+.\.venv\Scripts\Activate.ps1
+
+# macOS/Linux
+source .venv/bin/activate
+```
+
+**Activate from `backend/` or `frontend/`:**
+
+```powershell
+# Windows
+..\.venv\Scripts\Activate.ps1
+
+# macOS/Linux
+source ../.venv/bin/activate
+```
+
+**Deactivate:**
+
+```powershell
+deactivate
+```
+
+**⚠️ Avoid creating `backend/.venv`:**
+
+- **DO NOT** run `uv sync` or `uv venv` from inside `backend/` — this will create `backend/.venv`
+- **DO** use `python -m pytest`, `python -m uvicorn`, etc. after activating the root `.venv`
+- **DO** use `uv sync --project backend --active --inexact` from the project root with the venv activated
+
+### Running the Backend
+
+**From project root:**
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+cd backend
+python -m uvicorn app.main:app --reload
+```
+
+**From `backend/` directly:**
+
+```powershell
+..\.venv\Scripts\Activate.ps1
+python -m uvicorn app.main:app --reload
+```
+
+### Running the Frontend
 
 ```bash
 cd frontend
@@ -158,12 +235,30 @@ cd frontend
 streamlit run app.py
 ```
 
-### Tests
+### Running Tests
 
-```bash
+**From project root:**
+
+```powershell
+.\.venv\Scripts\Activate.ps1
 cd backend
-uv run pytest tests/ -v
+python -m pytest tests/ -v
 ```
+
+**From `backend/` directly:**
+
+```powershell
+..\.venv\Scripts\Activate.ps1
+python -m pytest tests/ -v
+```
+
+**Run specific test file:**
+
+```powershell
+python -m pytest tests/test_resource_route.py -v
+```
+
+**⚠️ Note:** Use `python -m pytest`, not bare `pytest`. This ensures pytest runs from the active venv.
 
 ---
 

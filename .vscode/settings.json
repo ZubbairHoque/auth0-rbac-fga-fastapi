@@ -1,7 +1,7 @@
 {
-  "python.defaultInterpreterPath": "python",
+  "python.defaultInterpreterPath": "${workspaceFolder}/.venv/Scripts/python.exe",
   "python.analysis.extraPaths": [
-    "./venv/Lib/site-packages"
+    "./backend"
   ],
   "github-actions.workflows.pinned.workflows": [
     ".github/workflows/python.yml"

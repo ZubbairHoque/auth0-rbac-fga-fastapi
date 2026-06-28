@@ -41,16 +41,17 @@ jobs:
       - name: Install dependencies
         working-directory: backend
         run: |
-          uv sync
-          uv pip install flake8 pytest
-          uv pip install httpx
-          uv pip install pytest-asyncio
+          uv venv ../.venv
+          source ../.venv/bin/activate
+          uv sync --active --inexact
+          uv pip install flake8
 
       - name: Lint with flake8
         working-directory: backend
         run: |
-          uv run flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics --exclude=.venv
-          uv run flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics --exclude=.venv
+          source ../.venv/bin/activate
+          python -m flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics --exclude=.venv
+          python -m flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics --exclude=.venv
 
       - name: Test with pytest
         working-directory: backend
@@ -60,4 +61,5 @@ jobs:
           CLOUDFLARE_API_TOKEN: dummy_token
           CLOUDINARY_URL: cloudinary://123:abc@dummy
         run: |
-          uv run python -m pytest
+          source ../.venv/bin/activate
+          python -m pytest
