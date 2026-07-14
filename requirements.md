@@ -1,129 +1,216 @@
-# Requirements Document
+# Frontend Test Plan
 
 ## Introduction
 
-This feature completes the admin member management flow for a single-tenant FastAPI + Auth0 FGA application. The backend has partial scaffolding (models, invite route, webhook, members list route) but contains bugs and missing pieces. The Streamlit frontend admin dashboard is fully stubbed with hardcoded data. This spec covers fixing the existing broken logic, adding the missing `DELETE /system/members/{member_id}` route, and wiring the frontend admin dashboard to live backend APIs.
+This plan defines the test coverage needed for `frontend/app.py` using tests under
+`frontend/tests`. The frontend is a Streamlit application that authenticates a
+typed user ID, renders admin and member dashboards, and calls backend APIs for
+member listing, invitation, and removal.
 
-## Glossary
+The tests should validate frontend behavior without requiring a running backend
+or manual browser interaction. Backend calls, Streamlit session state, and rerun
+behavior must be mocked or exercised through Streamlit's test utilities.
 
-- **System**: The FastAPI backend application
-- **Admin**: A user with the `admin` role in Auth0 FGA, allowed to manage members
-- **Member**: A user with the `member` role in Auth0 FGA
-- **MemberDB**: The SQLAlchemy database model storing member identity and lifecycle state
-- **InvitationDB**: The SQLAlchemy database model storing pending email invitations
-- **FGA**: Auth0 Fine-Grained Authorization service storing role tuples
-- **Webhook**: The `POST /system/auth/webhook/post-registration` endpoint triggered by Auth0 after a user registers
-- **Dashboard**: The Streamlit frontend admin UI at `frontend/app.py`
+## Scope
 
----
+- Test target: `frontend/app.py`
+- Test location: `frontend/tests`
+- Test runner: `pytest`
+- External dependencies to avoid in tests: live FastAPI backend, Auth0 FGA,
+  network access, and persistent Streamlit state between tests
+
+## Test Strategy
+
+1. Use isolated tests for helper functions such as `extract_error`.
+2. Use mocked `requests.get`, `requests.post`, and `requests.delete` calls for
+   backend interactions.
+3. Reset `st.session_state` between tests so authentication and dashboard tests
+   do not leak state.
+4. Prefer Streamlit app testing utilities where practical for end-to-end widget
+   behavior. Use direct function calls with mocked Streamlit APIs only when the
+   Streamlit test utility cannot cover a branch cleanly.
+5. Assert both user-visible output and outbound backend request shape.
 
 ## Requirements
 
-### ✅ Requirement 1: Fix POST /system/invite Response
+### ✅ Requirement 1: Test Error Extraction
 
-> Completed: `/invite` now returns a single `Invitation` (role from body only) and creates a matching `MemberDB(status=invited)`; verified by `test_invite_user_success`.
+**User Story:** As a developer, I want backend error handling covered, so that
+frontend failures show useful messages.
 
-**User Story:** As an admin, I want to invite a new user by email and role, so that they receive a pending invitation and appear in the member list.
+> Completed: All 3 criteria covered and passing in `test_extract_error.py` —
+> valid `detail`, invalid JSON, and JSON without `detail` (3 passed).
 
 #### Acceptance Criteria
 
-1. WHEN an admin sends a valid `POST /system/invite` request with an `InvitationCreate` body, THE System SHALL return a single `Invitation` object matching the `response_model=Invitation` declaration
-2. WHEN the invite endpoint is called, THE System SHALL derive the invited role from `InvitationCreate.role` only, removing the redundant `role` query parameter
-3. IF an admin sends `POST /system/invite` without a valid JSON body, THEN THE System SHALL return HTTP 422
-4. WHEN an invitation is created, THE System SHALL also create a corresponding `MemberDB` record with `status=invited` and the same email and role
+1. WHEN `extract_error` receives a response whose JSON body contains `detail`,
+   THE test SHALL assert that the `detail` value is returned.
+2. WHEN `extract_error` receives a response with invalid JSON, THE test SHALL
+   assert that `response.text` is returned.
+3. WHEN `extract_error` receives a JSON body without `detail`, THE test SHALL
+   assert that `response.text` is returned.
 
 ---
 
-### ✅ Requirement 2: Fix Webhook Member Activation
+### ✅ Requirement 2: Test Login Flow
 
-> Completed: Webhook updates invitation and member in a single transaction, and handles missing member records gracefully without error.
+**User Story:** As a user, I want login behavior covered, so that role detection
+and access denial do not regress.
 
-**User Story:** As a new user who registered via an invite link, I want my account to be activated automatically, so that I appear as an active member in the admin dashboard.
+> Completed: All 5 criteria covered and passing in `test_show_login_page.py` — empty user ID, admin login, member login, invalid role, and connection error handling.
 
 #### Acceptance Criteria
 
-1. WHEN the webhook receives a valid registration payload for an email with a pending invitation, THE System SHALL set `MemberDB.auth0_user_id = payload.user_id`
-2. WHEN the webhook activates a member, THE System SHALL set `MemberDB.status = MemberStatus.active`
-3. WHEN the webhook activates a member, THE System SHALL commit both the invitation update and the member update in the same transaction
-4. IF no `MemberDB` record exists for the invited email at webhook time, THEN THE System SHALL still complete the FGA assignment and invitation mark-as-used without error
+1. WHEN no user ID is submitted, THE test SHALL assert that the UI displays the
+   "Please enter a User ID." warning and does not call the backend.
+2. WHEN an entered user ID validates as `admin`, THE test SHALL assert that
+   `/dashboard/validate/admin` is called before `/dashboard/validate/member`,
+   session state stores `authenticated_role=admin`, and session state stores the
+   submitted user ID.
+3. WHEN admin validation fails and member validation succeeds, THE test SHALL
+   assert that session state stores `authenticated_role=member`.
+4. WHEN both role validations fail, THE test SHALL assert that the UI displays
+   the access denied error and does not authenticate the user.
+5. WHEN the validation request raises `requests.exceptions.ConnectionError`, THE
+   test SHALL assert that the connection failure message is shown.
 
 ---
 
-### ✅ Requirement 3: Add DELETE /system/members/{member_id}
+### ✅ Requirement 3: Test Admin Member Loading
 
-> Completed: Added route with proper status handling for active/invited members, omitting FGA calls for unassigned users, and enforcing soft-delete.
+**User Story:** As an admin, I want dashboard data loading covered, so that the
+member summary remains accurate.
 
-**User Story:** As an admin, I want to remove a member from the system, so that they lose access and the dashboard reflects their removal.
+> Completed: All 4 criteria covered and passing in `test_show_admin_dashboard.py` — backend call verification, Total Users metric, Active Invitations metric, and connection error handling.
 
 #### Acceptance Criteria
 
-1. WHEN an admin sends `DELETE /system/members/{member_id}` for an active or invited member, THE System SHALL set `MemberDB.status = MemberStatus.removed`
-2. WHEN removing a member whose `status` is `active`, THE System SHALL also call `authz.remove_user_role` to delete the FGA role tuple
-3. WHEN removing a member whose `status` is `invited`, THE System SHALL set status to `removed` without calling FGA (no tuple exists yet)
-4. IF the `member_id` does not exist in `MemberDB`, THEN THE System SHALL return HTTP 404
-5. IF the requesting `admin_user_id` does not have `can_manage_users` permission, THEN THE System SHALL return HTTP 403
-6. WHEN a member is removed, THE System SHALL NOT delete the `MemberDB` row (soft delete for audit history)
+1. WHEN `show_admin_dashboard(user_id)` renders successfully, THE test SHALL
+   assert that it calls `GET {BACKEND_URL}/system/members` with
+   `admin_user_id=user_id`.
+2. WHEN the backend returns members, THE test SHALL assert that "Total Users"
+   equals the number of returned members.
+3. WHEN the backend returns invited members, THE test SHALL assert that "Active
+   Invitations" equals the number of members whose `status` is `invited`.
+4. WHEN the backend request fails or raises during `raise_for_status`, THE test
+   SHALL assert that "Failed to load members" is displayed and the dashboard
+   continues rendering.
 
 ---
 
-### ✅ Requirement 4: Fix Test Suite
+### ✅ Requirement 4: Test Admin Member Table
 
-> Completed: Fixed async test session hygiene and added full coverage for DELETE /system/members endpoints including active, invited, 404, and 403 scenarios.
+**User Story:** As an admin, I want the member table covered, so that the UI
+shows the correct users and columns.
 
-**User Story:** As a developer, I want a passing test suite, so that regressions are caught automatically.
+> Completed: All 4 criteria covered in `test_show_admin_dashboard.py` — column filtering, removed-member exclusion, empty-list info message, and all-removed empty dataframe with no manage actions (6 passed).
 
 #### Acceptance Criteria
 
-1. WHEN `test_invite_user_success` runs, THE System SHALL send a valid `InvitationCreate` JSON body and assert on the returned `Invitation` fields
-2. WHEN any test in `test_system_routes.py` uses `db_session.commit()`, THE System SHALL use `await db_session.commit()` to avoid async session errors
-3. WHEN the `DELETE /system/members/{member_id}` route exists, THE System SHALL have tests covering: admin success (active member), admin success (invited member), 404 not found, and 403 forbidden
+1. WHEN active or invited members are returned, THE test SHALL assert that the
+   dataframe contains only the columns `email`, `role`, `status`, and
+   `created_at`.
+2. WHEN returned members include `status=removed`, THE test SHALL assert that
+   removed members are excluded from the displayed dataframe.
+3. WHEN the backend returns an empty member list, THE test SHALL assert that the
+   empty-state message "No active members found in the system" is displayed.
+4. WHEN all returned members are removed, THE test SHALL assert that the
+   dataframe is empty or no removable member actions are rendered.
 
 ---
 
-### Requirement 5: Live Admin Dashboard Metrics
+### ✅ Requirement 5: Test Remove Member Action
 
-**User Story:** As an admin, I want the dashboard to show real member counts and an active invitations count, so that I can understand the current system state at a glance.
+**User Story:** As an admin, I want member removal covered, so that revoke-access
+actions call the backend correctly and surface failures.
+
+> Completed: All 5 criteria covered and passing in `test_show_admin_dashboard.py` — keyed Remove button interaction (5.1), DELETE call with role/admin_user_id params (5.2), success message + single st.rerun (5.3), extract_error surfaced on non-200 (5.4), and delete ConnectionError message (5.5); 8 passed in file.
 
 #### Acceptance Criteria
 
-1. WHEN the admin dashboard loads, THE Dashboard SHALL call `GET /system/members?admin_user_id={user_id}` and display the count of non-removed members as "Total Users"
-2. WHEN the admin dashboard loads, THE Dashboard SHALL derive and display the count of members with `status=invited` as "Active Invitations"
-3. IF the backend call fails, THEN THE Dashboard SHALL display an error message instead of crashing
+1. WHEN a non-removed member is displayed, THE test SHALL assert that a
+   corresponding "Remove" button is rendered.
+2. WHEN the remove button is clicked, THE test SHALL assert that the frontend
+   calls `DELETE {BACKEND_URL}/system/members/{member_id}` with query params
+   `role=<member role>` and `admin_user_id=<current admin user ID>`.
+3. WHEN the delete response has status code `200`, THE test SHALL assert that a
+   success message is displayed and `st.rerun` is requested.
+4. WHEN the delete response is not successful, THE test SHALL assert that the
+   error message includes the value returned by `extract_error`.
+5. WHEN the delete request raises `requests.exceptions.ConnectionError`, THE
+   test SHALL assert that the backend connection failure message is displayed.
 
 ---
 
-### Requirement 6: Member Table in Admin Dashboard
+### ✅ Requirement 6: Test Invite Member Form
 
-**User Story:** As an admin, I want to see a table of all current members and their status, so that I can understand who has access and who has a pending invite.
+**User Story:** As an admin, I want invitation behavior covered, so that new
+member invites are sent with the expected payload.
+
+> Completed: All 6 criteria covered and passing in `test_show_admin_dashboard.py` — POST payload with email/role/admin_user_id (6.1), success message + rerun on 200 (6.2), extract_error surfaced on non-200 (6.3), empty email warning with no POST (6.4), ConnectionError message (6.5), and role selector options verified (6.6); 12 passed in file.
 
 #### Acceptance Criteria
 
-1. WHEN the admin dashboard loads, THE Dashboard SHALL render a table with columns: email, role, status, created_at
-2. THE Dashboard SHALL display only members with `status != removed` (relying on the backend filter)
-3. WHEN no members exist, THE Dashboard SHALL display an appropriate empty-state message
+1. WHEN the invite form is submitted with an email and role, THE test SHALL
+   assert that the frontend calls `POST {BACKEND_URL}/system/invite` with query
+   param `admin_user_id=<current admin user ID>` and JSON body containing
+   `email` and `role`.
+2. WHEN the invite response has status code `200`, THE test SHALL assert that
+   "Invitation sent successfully!" is displayed and `st.rerun` is requested.
+3. WHEN the invite response is not successful, THE test SHALL assert that the
+   displayed error includes the backend-provided detail.
+4. WHEN the invite form is submitted without an email, THE test SHALL assert
+   that "Email is required" is displayed and no POST request is sent.
+5. WHEN the invite request raises `requests.exceptions.ConnectionError`, THE
+   test SHALL assert that the backend connection failure message is displayed.
+6. WHEN the invite form renders, THE test SHALL assert that the role selector
+   offers `admin` and `member`.
 
 ---
 
-### Requirement 7: Invite Form in Admin Dashboard
+### ✅ Requirement 7: Test Member Dashboard
 
-**User Story:** As an admin, I want to invite a new member from the dashboard, so that I do not need to use the API directly.
+**User Story:** As a member, I want the member dashboard covered, so that the
+non-admin experience remains available.
+
+> Completed: All 3 criteria covered and passing in `test_show_member_dashboard.py` — sidebar user identification, workspace title/empty state display, and logout with session clear + rerun (1 passed).
 
 #### Acceptance Criteria
 
-1. WHEN an admin submits the invite form with a valid email and role, THE Dashboard SHALL call `POST /system/invite?admin_user_id={user_id}` with a JSON body `{"email": ..., "role": ...}`
-2. WHEN the invite succeeds, THE Dashboard SHALL display a success message and refresh the member list
-3. IF the invite fails (e.g., duplicate email, network error), THEN THE Dashboard SHALL display the error message from the backend response
-4. WHEN the invite form is displayed, THE Dashboard SHALL provide a role selector with options `admin` and `member`
+1. WHEN `show_member_dashboard(user_id)` renders, THE test SHALL assert that the
+   sidebar identifies the current user.
+2. WHEN the member dashboard renders, THE test SHALL assert that it displays the
+   member workspace title and pending-task empty state.
+3. WHEN the logout button is clicked, THE test SHALL assert that session state
+   is cleared and `st.rerun` is requested.
 
 ---
 
-### Requirement 8: Remove Member Action in Admin Dashboard
+### Requirement 8: Test Main Routing
 
-**User Story:** As an admin, I want to remove a member from the dashboard, so that I can revoke access without using the API directly.
+**User Story:** As a developer, I want top-level app routing covered, so that
+session state consistently controls which page is rendered.
 
 #### Acceptance Criteria
 
-1. WHEN the member table is rendered, THE Dashboard SHALL display a "Remove" button for each non-removed member
-2. WHEN an admin clicks "Remove" for a member, THE Dashboard SHALL call `DELETE /system/members/{member_id}?admin_user_id={user_id}`
-3. WHEN the removal succeeds, THE Dashboard SHALL display a success message and refresh the member list
-4. IF the removal fails, THEN THE Dashboard SHALL display the error message from the backend response
+1. WHEN `authenticated_role` is `None`, THE test SHALL assert that `main()`
+   renders the login page.
+2. WHEN `authenticated_role` is `admin`, THE test SHALL assert that `main()`
+   renders the admin dashboard with the stored user ID.
+3. WHEN `authenticated_role` is `member`, THE test SHALL assert that `main()`
+   renders the member dashboard with the stored user ID.
+4. WHEN `authenticated_role` has an unknown value, THE test SHALL assert that
+   the internal state error is displayed and reset behavior is available.
+
+## Implementation Notes
+
+- Add `frontend/tests/conftest.py` with fixtures for clearing Streamlit session
+  state and monkeypatching backend requests.
+- Use lightweight fake response objects with `status_code`, `json()`, `text`,
+  and `raise_for_status()` methods.
+- Patch `frontend.app.st.rerun` in tests so rerun requests can be asserted
+  without interrupting the test process.
+- Keep tests deterministic by setting `frontend.app.BACKEND_URL` explicitly in
+  fixtures instead of depending on local environment variables.
+- Do not use a live backend in frontend tests; backend behavior belongs in the
+  backend test suite.

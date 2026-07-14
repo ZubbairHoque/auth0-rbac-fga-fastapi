@@ -1,13 +1,16 @@
 {
   "python.defaultInterpreterPath": "${workspaceFolder}/.venv/Scripts/python.exe",
   "python.analysis.extraPaths": [
-    "./backend"
+    ""
   ],
   "github-actions.workflows.pinned.workflows": [
     ".github/workflows/python.yml"
   ],
-  "kiroAgent.configureMCP": "Disabled",
-  "svg.completion.showDeprecated": true,
-
+  "python.testing.pytestArgs": [
+    "."
+  ],
+  "python.testing.unittestEnabled": false,
+  "python.testing.pytestEnabled": true,
+ 
 
 }
