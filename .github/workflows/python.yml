@@ -38,16 +38,15 @@ jobs:
         with:
           enable-cache: true
 
-      - name: Install dependencies
-        working-directory: backend
+      - name: Install dependencies 
+        working-directory: backend, frontend
         run: |
           uv venv ../.venv
           source ../.venv/bin/activate
           uv sync --active --inexact
           uv pip install flake8
-
       - name: Lint with flake8
-        working-directory: backend
+        working-directory: backend, frontend
         run: |
           source ../.venv/bin/activate
           python -m flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics --exclude=.venv
