@@ -41,18 +41,27 @@ def test_memberdb_call(mock_st):
 @patch("app.st")
 def test_invalid_role(mock_st):
     """Test that the app renders the login page when an invalid role is set."""
-        
     session_data = {
-        "authenticated_role": "invalid", "user_id": "user:alice"
+        "authenticated_role": "invalid", 
+        "user_id": "user:alice"
     }
-
-    mock_st.session_state = Mock(wraps=session_data)
+    
+    # 1. Use MagicMock instead of Mock to easily stub special methods
+    mock_state = MagicMock()
+    
+    # 2. Tell __getitem__ to grab values from our dictionary
+    mock_state.__getitem__.side_effect = session_data.__getitem__
+    
+    # 3. Assign our configured mock state to st.session_state
+    mock_st.session_state = mock_state
     mock_st.button.return_value = True    
-
 
     app.main()
     
+    # Assertions
     mock_st.error.assert_called_once_with("Internal State Error: Unknown Role")
     mock_st.button.assert_called_once_with("Reset Session")
-    mock_st.session_state.clear.assert_called_once()
+    
+    # 4. Verify tracking hooks triggered perfectly
+    mock_state.clear.assert_called_once()
     mock_st.rerun.assert_called_once()

@@ -43,7 +43,7 @@ jobs:
         run: |
           uv venv ../.venv
           source ../.venv/bin/activate
-          uv sync --active --inexact --native-tls
+          uv sync --inexact --native-tls
           uv pip install flake8
       - name: Lint with flake8 for backend
         working-directory: backend
@@ -68,7 +68,7 @@ jobs:
         run: |
           uv venv ../.venv
           source ../.venv/bin/activate
-          uv sync --active --inexact --native-tls
+          uv sync  --inexact --native-tls
           uv pip install flake8
       - name: Lint with flake8 for frontend
         working-directory: frontend
