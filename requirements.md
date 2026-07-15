@@ -186,10 +186,12 @@ non-admin experience remains available.
 
 ---
 
-### Requirement 8: Test Main Routing
+### ✅ Requirement 8: Test Main Routing
 
 **User Story:** As a developer, I want top-level app routing covered, so that
 session state consistently controls which page is rendered.
+
+> Completed: All 4 criteria covered and passing in `test_main.py` — None role renders login (8.1), admin role renders admin dashboard (8.2), member role renders member dashboard (8.3), and invalid role displays error with reset button that clears session and reruns (8.4); 4 passed.
 
 #### Acceptance Criteria
 

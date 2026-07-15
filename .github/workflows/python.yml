@@ -38,12 +38,14 @@ jobs:
         with:
           enable-cache: true
 
+      - name: Create shared venv
+        run: uv venv .venv
+
       - name: Install dependencies for backend
         working-directory: backend
         run: |
-          uv venv ../.venv
           source ../.venv/bin/activate
-          uv sync --inexact --native-tls
+          uv sync --active --inexact --native-tls
           uv pip install flake8
       - name: Lint with flake8 for backend
         working-directory: backend
@@ -66,10 +68,8 @@ jobs:
       - name: Install dependencies for frontend
         working-directory: frontend
         run: |
-          uv venv ../.venv
           source ../.venv/bin/activate
-          uv sync  --inexact --native-tls
-          uv pip install flake8
+          uv sync --active --inexact --native-tls
       - name: Lint with flake8 for frontend
         working-directory: frontend
         run: |
