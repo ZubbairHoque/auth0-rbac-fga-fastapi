@@ -162,8 +162,9 @@ source .venv/bin/activate
 **Install backend dependencies:**
 
 ```powershell
-# With venv activated, from project root
-uv sync --project backend --active --inexact
+# With venv activated, from the backend directory
+cd backend
+uv sync --active --inexact --native-tls
 ```
 
 **Configure backend:**
@@ -208,7 +209,7 @@ deactivate
 
 - **DO NOT** run `uv sync` or `uv venv` from inside `backend/` — this will create `backend/.venv`
 - **DO** use `python -m pytest`, `python -m uvicorn`, etc. after activating the root `.venv`
-- **DO** use `uv sync --project backend --active --inexact` from the project root with the venv activated
+- **DO** use `cd backend` then `uv sync --active --inexact --native-tls` with the venv activated
 
 ### Running the Backend
 

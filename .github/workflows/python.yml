@@ -42,9 +42,10 @@ jobs:
         run: uv venv .venv
 
       - name: Install dependencies for backend
+        working-directory: backend
         run: |
-          source .venv/bin/activate
-          uv sync --project backend --inexact --native-tls
+          source ../.venv/bin/activate
+          uv sync --active --inexact --native-tls
           uv pip install flake8
       - name: Lint with flake8 for backend
         working-directory: backend
@@ -65,9 +66,10 @@ jobs:
           python -m pytest
 
       - name: Install dependencies for frontend
+        working-directory: backend
         run: |
-          source .venv/bin/activate
-          uv sync --project frontend --inexact --native-tls
+          source ../.venv/bin/activate
+          uv pip install streamlit pandas requests
       - name: Lint with flake8 for frontend
         working-directory: frontend
         run: |
