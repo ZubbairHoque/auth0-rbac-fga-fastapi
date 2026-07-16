@@ -28,6 +28,7 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+      
       - name: Set up Python 3.12
         uses: actions/setup-python@v5
         with:
@@ -41,20 +42,30 @@ jobs:
       - name: Create shared venv
         run: uv venv .venv
 
-      - name: Install dependencies for backend
+      - name: Install backend dependencies
         working-directory: backend
         run: |
           source ../.venv/bin/activate
           uv sync --inexact --native-tls
-          uv pip install flake8
-      - name: Lint with flake8 for backend
+      
+      - name: Install additional tools (flake8, pytest)
+        run: |
+          source .venv/bin/activate
+          uv pip install flake8 pytest
+
+      - name: Install frontend dependencies
+        run: |
+          source .venv/bin/activate
+          uv pip install streamlit pandas requests
+
+      - name: Lint backend with flake8
         working-directory: backend
         run: |
           source ../.venv/bin/activate
           python -m flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics --exclude=.venv
           python -m flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics --exclude=.venv
 
-      - name: Test with pytest for backend
+      - name: Test backend with pytest
         working-directory: backend
         env:
           DATABASE_URL: postgresql+psycopg://postgres:password@localhost:5432/backend_db
@@ -63,22 +74,18 @@ jobs:
           CLOUDINARY_URL: cloudinary://123:abc@dummy
         run: |
           source ../.venv/bin/activate
-          python -m pytest
+          python -m pytest tests/ -v
 
-      - name: Install dependencies for frontend
-        working-directory: backend
-        run: |
-          source ../.venv/bin/activate
-          uv pip install streamlit pandas requests
-      - name: Lint with flake8 for frontend
+      - name: Lint frontend with flake8
         working-directory: frontend
         run: |
           source ../.venv/bin/activate
           python -m flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics --exclude=.venv
           python -m flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics --exclude=.venv
-      - name: Test with pytest for frontend
+      
+      - name: Test frontend with pytest
         working-directory: frontend
         run: |
           source ../.venv/bin/activate
-          python -m pytest
+          python -m pytest tests/ -v
           
