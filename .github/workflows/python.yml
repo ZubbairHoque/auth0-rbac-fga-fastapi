@@ -53,9 +53,6 @@ jobs:
       - name: Install additional tools
         run: uv pip install --python .venv/bin/python flake8
 
-      - name: Install frontend dependencies
-        run: uv pip install --python .venv/bin/python streamlit pandas requests
-
       - name: Lint backend with flake8
         working-directory: backend
         run: |
