@@ -2,7 +2,7 @@ name: Python application
 
 on:
   push:
-    branches: [ "main", "single-tenant-refactor" ]
+    branches: [ "main", "single-tenant-refactor", "streamlit-frontend" ]
   pull_request:
     branches: [ "main" ]
 
@@ -26,35 +26,47 @@ jobs:
           --health-cmd pg_isready --health-interval 10s --health-timeout 5s
           --health-retries 5
 
+    defaults:
+      run:
+        shell: bash
+
     steps:
       - uses: actions/checkout@v4
-      - name: Set up Python 3.11
+      
+      - name: Set up Python 3.12
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"
 
       - name: Install uv
         uses: astral-sh/setup-uv@v1
         with:
           enable-cache: true
 
-      - name: Install dependencies
-        run: |
-          uv sync
-          uv pip install flake8 pytest
-          uv pip install httpx
-          uv pip install pytest-asyncio
+      - name: Create virtual environment at project root
+        run: uv venv .venv
 
-      - name: Lint with flake8
-        run: |
-          uv run flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics --exclude=.venv
-          uv run flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics --exclude=.venv
+      - name: Install backend dependencies
+        working-directory: backend
+        run: uv pip install --python ../.venv/bin/python -e .
+      
+      - name: Install additional tools
+        run: uv pip install --python .venv/bin/python flake8
 
-      - name: Test with pytest
+      - name: Install frontend dependencies
+        run: uv pip install --python .venv/bin/python streamlit pandas requests
+
+      - name: Lint backend with flake8
+        working-directory: backend
+        run: |
+          ../.venv/bin/python -m flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics --exclude=.venv
+          ../.venv/bin/python -m flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics --exclude=.venv
+
+      - name: Test backend with pytest
+        working-directory: backend
         env:
           DATABASE_URL: postgresql+psycopg://postgres:password@localhost:5432/backend_db
           CLOUDFLARE_ACCOUNT_ID: dummy_id
           CLOUDFLARE_API_TOKEN: dummy_token
           CLOUDINARY_URL: cloudinary://123:abc@dummy
-        run: |
-          uv run python -m pytest
+        run: ../.venv/bin/python -m pytest tests/ -v
