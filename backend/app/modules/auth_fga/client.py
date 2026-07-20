@@ -2,7 +2,7 @@ from openfga_sdk import OpenFgaClient
 from openfga_sdk.client import ClientConfiguration
 from openfga_sdk.client.models import ClientCheckRequest, ClientWriteRequest, ClientTuple
 from openfga_sdk.credentials import Credentials, CredentialConfiguration
-from app.config import settings
+from app.core.config import settings
 import logging
 from typing import Optional
 

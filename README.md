@@ -73,121 +73,216 @@ fastapi-openfga-project/
 │   ├── services/
 │   │   └── authorization_service.py # OpenFGA integration
 │   ├── utils/
-│   │   └── auth0_fga_client.py    # OpenFGA client wrapper
-│   └── openfga/
-│       └── model.fga.yaml       # OpenFGA model definition
-├── app.db                       # SQLite database file (auto-created)
-├── requirements.txt
-└── README.md
+│   │   └st_security.py` — HMAC valid/invalid, JWT valid/invalid (parametrized)
+- [x] `test_utils_auth0_fg_client.py` — lazy init, check, write, delete, list, health check
+
+### Frontend
+- [x] Streamlit login page with sequential role validation
+- [x] `show_member_dashboard()` — stub member workspace view
+
+---
+
+## What's Still TODO
+
+### Backend — Bugs & Missing Logic
+
+- [ ] **`POST /system/invite` returns a tuple, not a valid response**
+  - `return (new_inv, new_member)` is not a valid `Invitation` response model — should return `new_inv` only (or a combined schema)
+  - `role` is accepted as both a query param and inside `InvitationCreate`, creating a conflict; consolidate to one source of truth
+
+- [ ] **Webhook does not update `MemberDB` on registration**
+  - `sync_user_to_fga` marks the invitation used and writes the FGA tuple, but never sets `MemberDB.auth0_user_id` or flips `status` to `active`
+  - Add: find matching `MemberDB` by email → set `auth0_user_id = payload.user_id` → set `status = MemberStatus.active` → commit
+
+- [ ] **`DELETE /system/members/{member_id}` route is missing**
+  - `DELETE /system/users/{user_id}` removes a FGA tuple by `user_id` string but has no DB side-effect
+  - Need a proper `DELETE /system/members/{member_id}` that: checks admin permission → removes FGA role for active members → sets `MemberDB.status = removed`
+
+- [ ] **`test_invite_user_success` is broken**
+  - Calls `POST /system/invite` with no request body (missing `InvitationCreate` JSON)
+  - Assertion checks for `"Successfully synced"` which is the webhook message, not the invite response
+  - Fix the test to POST a valid `{"email": "...", "role": "..."}` body and assert on the returned `Invitation` object
+
+- [ ] **`conftest.py` `db_session` fixture uses sync `commit()`**
+  - `db_session.commit()` should be `await db_session.commit()` — async sessions require awaited commits
+  - Same for `db_session.add()` followed by `db_session.commit()` in `test_system_routes.py`
+
+- [ ] **`hmac.new(...)` should be `hmac.new(...)` → `verify_signature` uses `hmac.new` not `hmac.HMAC`**
+  - `security.py` calls `hmac.new(...)` — the correct call is `hmac.new(key=..., msg=..., digestmod=...)` which is valid but double-check this runs without error on the target Python version (3.10+)
+
+### Backend — Missing Routes
+
+- [ ] **`DELETE /system/members/{member_id}`** (see above)
+- [ ] **`GET /system/members/{member_id}`** — optional but useful for the frontend detail view
+
+### Frontend — Admin Dashboard
+
+- [ ] **Replace hardcoded metrics with live API calls**
+  - `Total Users` and `Active Invitations` are static strings `"24"` and `"3"`
+  - Call `GET /system/members?admin_user_id={user_id}` and derive counts from the response
+
+- [ ] **Add member table**
+  - Fetch members list and render with `st.dataframe` or `st.table`
+  - Show: email, role, status, created_at
+  - Filter out removed members by default (backend already does this)
+
+- [ ] **Add invite form**
+  - Input: email + role selector (`admin` / `member`)
+  - On submit: `POST /system/invite?admin_user_id={user_id}` with JSON body `{"email": ..., "role": ...}`
+  - Show success/error feedback and refresh member list
+
+- [ ] **Add remove/delete member action**
+  - Per-row delete button in the member table
+  - Call `DELETE /system/members/{member_id}?admin_user_id={user_id}` once that route exists
+  - Show confirmation before delete
+
+---
+
+## Setup
+
+### Initial Setup (First Time Only)
+
+**Create the virtual environment at the project root:**
+
+```powershell
+# From project root
+uv venv .venv
 ```
 
-## Features
+**Activate the virtual environment:**
 
-- **Role-Based Access Control**: OpenFGA-powered authorization
-- **Persistent Storage**: SQLite database with SQLAlchemy ORM
-- **Async Support**: Full async/await support for database operations
-- **Auto-reload**: Development server with hot reload
-- **API Documentation**: Interactive Swagger UI documentation
-- **Data Validation**: Pydantic models for request/response validation
+```powershell
+# Windows PowerShell
+.\.venv\Scripts\Activate.ps1
 
-## Requirements
+# macOS/Linux
+source .venv/bin/activate
+```
 
-- Python 3.9+
-- Auth0 Account
-- Auth0 FGA Account
+**Install backend dependencies:**
 
-## Setup Instructions
+```powershell
+# With venv activated, from the backend directory
+cd backend
+uv sync --active --inexact --native-tls
+```
 
-1. **Install Dependencies**
-   ```bash
-   pip install -r requirements.txt
-   ```
+**Configure backend:**
 
-2. **Configure Environment**
-   ```bash
-   cp .env.example .env
-   ```
-   Don't forget to add your credentials!
+```bash
+cd backend
+cp .env.example .env
+# Fill in Auth0 FGA credentials in .env
+```
 
-3. **Run the Application**
-   ```bash
-   uvicorn app.main:app --reload
-   ```
-   
-   The application will:
-   - Connect to Auth0 FGA
-   - Initialize SQLite database tables automatically
-   - Start the FastAPI server on http://127.0.0.1:8000
+### Virtual Environment Management
 
-5. **Access the API**
-   - API Documentation: http://127.0.0.1:8000/docs
-   - RBAC Info: http://127.0.0.1:8000/rbac-info
-   - Health Check: http://127.0.0.1:8000/health
+**⚠️ Important: This project uses a single `.venv` at the project root.**
 
-## Dependencies
+**Activate from project root:**
 
-- **FastAPI 0.115.0**: Modern web framework for building APIs
-- **SQLAlchemy 2.0.36**: SQL toolkit and Object-Relational Mapping
-- **aiosqlite 0.20.0**: Async SQLite driver
-- **OpenFGA SDK 0.9.5**: [OpenFGA python client library](https://github.com/openfga/python-sdk)
-- **Pydantic 2.10.0**: Data validation and settings management
-- **Uvicorn 0.32.0**: ASGI server implementation
+```powershell
+# Windows
+.\.venv\Scripts\Activate.ps1
 
-## API Endpoints
+# macOS/Linux
+source .venv/bin/activate
+```
 
-### Organizations
-- `GET /organizations` - List accessible organizations
-- `POST /organizations` - Create organization (creator becomes admin)
-- `GET /organizations/{id}` - Get organization details
-- `DELETE /organizations/{id}` - Delete organization (admin only)
-- `POST /organizations/{id}/members` - Add member (admin only)
-- `DELETE /organizations/{id}/members/{user_id}` - Remove member (admin only)
+**Activate from `backend/` or `frontend/`:**
 
-### Resources
-- `GET /resources` - List accessible resources
-- `POST /resources` - Create resource (admin or member)
-- `GET /resources/{id}` - Get resource details
-- `DELETE /resources/{id}` - Delete resource (admin only)
-- `GET /resources/{id}/permissions` - Check user permissions on resource
+```powershell
+# Windows
+..\.venv\Scripts\Activate.ps1
 
-## Example Usage Flow
+# macOS/Linux
+source ../.venv/bin/activate
+```
 
-1. **Create an Organization**
-   ```bash
-   curl -X POST "http://localhost:8000/organizations?user_id=alice" \
-        -H "Content-Type: application/json" \
-        -d '{"name": "Acme Corp", "description": "Example organization"}'
-   ```
+**Deactivate:**
 
-2. **Add a Member**
-   ```bash
-   curl -X POST "http://localhost:8000/organizations/{org_id}/members?user_id=alice" \
-        -H "Content-Type: application/json" \
-        -d '{"user_id": "bob", "role": "member", "organization_id": "{org_id}"}'
-   ```
+```powershell
+deactivate
+```
 
-3. **Create a Resource**
-   ```bash
-   curl -X POST "http://localhost:8000/resources?user_id=bob" \
-        -H "Content-Type: application/json" \
-        -d '{"name": "Database Server", "resource_type": "database", "organization_id": "{org_id}"}'
-   ```
+**⚠️ Avoid creating `backend/.venv`:**
 
-4. **Check Permissions**
-   ```bash
-   curl "http://localhost:8000/resources/{resource_id}/permissions?user_id=bob"
-   ```
+- **DO NOT** run `uv sync` or `uv venv` from inside `backend/` — this will create `backend/.venv`
+- **DO** use `python -m pytest`, `python -m uvicorn`, etc. after activating the root `.venv`
+- **DO** use `cd backend` then `uv sync --active --inexact --native-tls` with the venv activated
 
-## Next Steps for Extension
+### Running the Backend
 
-This basic RBAC model can be extended by:
+**From project root:**
 
-1. Adding more roles (e.g., `viewer`, `manager`)
-2. Implementing resource-specific permissions
-3. Adding hierarchical organizations
-4. Implementing time-based access controls
-5. Adding attribute-based access control (ABAC) elements
+```powershell
+.\.venv\Scripts\Activate.ps1
+cd backend
+python -m uvicorn app.main:app --reload
+```
 
-## License
+**From `backend/` directly:**
 
-This project is licensed under the MIT License. See the LICENSE file for more details.
+```powershell
+..\.venv\Scripts\Activate.ps1
+python -m uvicorn app.main:app --reload
+```
+
+### Running the Frontend
+
+```bash
+cd frontend
+# Ensure BACKEND_URL is set in frontend/.env
+streamlit run app.py
+```
+
+### Running Tests
+
+**From project root:**
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+cd backend
+python -m pytest tests/ -v
+```
+
+**From `backend/` directly:**
+
+```powershell
+..\.venv\Scripts\Activate.ps1
+python -m pytest tests/ -v
+```
+
+**Run specific test file:**
+
+```powershell
+python -m pytest tests/test_resource_route.py -v
+```
+
+**⚠️ Note:** Use `python -m pytest`, not bare `pytest`. This ensures pytest runs from the active venv.
+
+---
+
+## Environment Variables
+
+| Variable | Description |
+|---|---|
+| `AUTH0_FGA_DOMAIN` | Your Auth0 domain |
+| `AUTH0_FGA_STORE_ID` | FGA store ID |
+| `AUTH0_FGA_CLIENT_ID` | FGA client credentials ID |
+| `AUTH0_FGA_CLIENT_SECRET` | FGA client credentials secret |
+| `AUTH0_FGA_AUTHORIZATION_MODEL_ID` | FGA model ID |
+| `AUTH0_FGA_API_TOKEN_ISSUER` | Token issuer URL |
+| `AUTH0_FGA_API_AUDIENCE` | API audience |
+| `AUTH0_FGA_API_URL` | FGA API base URL |
+| `WEBHOOK_SIGNATURE_SECRET` | HMAC secret for Auth0 webhook verification |
+| `DATABASE_URL` | SQLAlchemy async DB URL (default: `sqlite+aiosqlite:///./app.db`) |
+
+---
+
+## Key Design Decisions
+
+- **FGA is authorization-only** — it answers "is this user allowed?", not "who are my users?". Member identity lives in `MemberDB`; FGA holds only role tuples.
+- **Soft deletes** — removed members stay in `MemberDB` with `status=removed` for audit history; they are excluded from the default member list query.
+- **Invitation flow** — `POST /invite` creates both an `InvitationDB` (with a token) and a pending `MemberDB`. The Auth0 post-registration webhook activates the member by linking their `auth0_user_id` and flipping status to `active`.
+- **No Alembic yet** — tables are created via `Base.metadata.create_all` at startup. Migration support should be added before any schema changes in production.

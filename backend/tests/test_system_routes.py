@@ -1,8 +1,8 @@
-from app.routes.system_routes import get_authz_service
 from unittest.mock import AsyncMock
 import pytest
 from app.main import app
 from fastapi.testclient import TestClient
+from app.modules.systems.route import get_authz_service
 
 client = TestClient(app)
 

@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
-from app.utils.auth0_fga_client import Auth0FGAClient
+from app.modules.auth_fga.client import Auth0FGAClient
 
 @pytest.mark.asyncio
 async def test_get_client_lazy_init():

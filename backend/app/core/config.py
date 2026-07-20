@@ -1,9 +1,16 @@
 import os
 from pydantic_settings import BaseSettings
+from pydantic import ConfigDict
 from typing import Optional
 
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
+
+    model_config = ConfigDict(
+        env_file=".env",
+        case_sensitive=False,
+        extra="ignore"
+    )
 
     # Application Configuration
     app_title: str = "Auto Texting"
@@ -25,9 +32,5 @@ class Settings(BaseSettings):
     # Telegram Configuration
     telegram_bot_token: Optional[str] = None
     telegram_chat_id: Optional[str] = None
-    
-    class Config:
-        env_file = ".env"
-        case_sensitive = False
 
 settings = Settings()

@@ -1,11 +1,10 @@
 import pytest
 from unittest.mock import AsyncMock, patch
-from app.services.authorization_service import authz_service
-
+from app.modules.auth_fga.service import authz_service, AuthorizationService
 
 @pytest.fixture
 def mock_fga():
-    with patch('app.services.authorization_service.fga_client') as mock:
+    with patch('app.modules.auth_fga.service.fga_client') as mock:
         mock.write_tuples = AsyncMock(return_value=True)
         mock.delete_tuples = AsyncMock(return_value=True)
         mock.check_permission = AsyncMock(return_value=True)

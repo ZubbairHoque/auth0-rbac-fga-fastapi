@@ -1,9 +1,9 @@
 from unittest.mock import AsyncMock, MagicMock
 import pytest
 from fastapi.testclient import TestClient
-from app.database import ResourceDB, get_db
+from app.core.database import ResourceDB, get_db
 from app.main import app
-from app.routes.resource_routes import get_authz_service
+from app.modules.resource.route import get_authz_service
 
 client = TestClient(app)
 

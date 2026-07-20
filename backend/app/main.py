@@ -2,10 +2,11 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
-from app.config import settings
-from app.database import init_db
-from app.routes import resource_routes, system_routes
-from app.services.authorization_service import authz_service
+from app.core.config import settings
+from app.core.database import init_db
+from app.modules.resource import route as resource_routes
+from app.modules.systems import route as system_routes
+from app.modules.auth_fga.service import authz_service
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Query, Depends
 from pydantic import BaseModel, Field
-from app.services.authorization_service import authz_service, AuthorizationService
+from app.modules.auth_fga.service import authz_service, AuthorizationService
 
 router = APIRouter()
 

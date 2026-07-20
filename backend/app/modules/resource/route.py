@@ -4,9 +4,9 @@ from typing import List
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from app.models.resource import Resource, ResourceCreate
-from app.database import get_db, ResourceDB
-from app.services.authorization_service import authz_service, AuthorizationService
+from app.modules.resource.model import Resource, ResourceCreate
+from app.core.database import get_db, ResourceDB
+from app.modules.auth_fga.service import authz_service, AuthorizationService
 
 router = APIRouter()
 

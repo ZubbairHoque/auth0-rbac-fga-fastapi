@@ -2,7 +2,7 @@ from unittest.mock import AsyncMock
 import pytest
 from fastapi.testclient import TestClient
 from app.main import app, lifespan
-from app.routes.resource_routes import get_authz_service
+from app.modules.resource.route import get_authz_service
 
 client = TestClient(app)
 
