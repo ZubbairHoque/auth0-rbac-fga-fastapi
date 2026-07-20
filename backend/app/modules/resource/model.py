@@ -9,6 +9,7 @@ class ResourceBase(BaseModel):
 
 class ResourceCreate(ResourceBase):
     pass
+
 class ResourceUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
