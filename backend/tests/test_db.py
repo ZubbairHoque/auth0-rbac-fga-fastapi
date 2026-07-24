@@ -1,8 +1,7 @@
 import pytest
 import pytest_asyncio
-from app.database import engine, get_db
-from app.database import Base
-from app.database import ResourceDB
+from app.core.database import Base, engine, get_db
+from app.modules.resource.model import ResourceDB
 
 @pytest_asyncio.fixture(loop_scope="session", autouse=True)
 async def db_engine_fixture():
@@ -39,7 +38,7 @@ async def test_get_db_yields_session():
 @pytest.mark.asyncio
 async def test_resource_db_model(db_session):
     """Test that we can create and retrieve a ResourceDB instance."""
-    from app.database import ResourceDB
+    from app.modules.resource.model import ResourceDB
     from sqlalchemy import select
     import uuid
     
@@ -70,7 +69,7 @@ async def test_resource_db_model(db_session):
 async def test_database_initialization(db_engine_fixture):
     """Test that the database can be initialized and tables created."""
     from sqlalchemy import inspect
-    from app.database import engine
+    from app.core.database import engine
     
     def run_inspections(conn):
         inspector = inspect(conn)

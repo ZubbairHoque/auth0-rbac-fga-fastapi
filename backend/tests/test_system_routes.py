@@ -1,8 +1,9 @@
-from app.models.member import MemberBase
 import tracemalloc
-from app.routes.system_routes import get_authz_service, validate_webhook_signature
-from app.database import get_db, InvitationDB, MemberDB
-from app.models.member import MemberStatus
+from app.modules.member.schema import MemberBase
+from app.modules.member.routes import get_authz_service, validate_webhook_signature
+from app.modules.member.model import MemberDB, InvitationDB
+from app.core.database import get_db
+from app.modules.member.schema import MemberStatus
 from sqlalchemy import select
 from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
@@ -21,7 +22,7 @@ async def test_assign_role_success(client):
     try:
         payload = {"user_id": "alice", "role": "admin"}
         response = await client.post(
-            "/system/users?admin_user_id=boss", json=payload
+            "/auth/users?admin_user_id=boss", json=payload
             )
         
         assert response.status_code == 200
@@ -39,7 +40,7 @@ async def test_assign_role_forbidden(client):
     try:
         payload = {"user_id": "alice", "role": "admin"}
         response = await client.post(
-            "/system/users?admin_user_id=notadmin", json=payload
+            "/auth/users?admin_user_id=notadmin", json=payload
             )
         
         assert response.status_code == 403
@@ -53,29 +54,33 @@ async def test_remove_user_role_for_active_user_success( client, db_session):
 
     db_session.add(
         MemberDB(
-            id="mem-1",
-            email="alice@example.com", 
+            id="mem-2",
+            email="brian@example.com", 
             role="admin", 
             status=MemberStatus.active,
-            auth0_user_id="alice"
+            auth0_user_id="brian"
         )
     )
 
     await db_session.commit()
 
     member = await db_session.execute(
-        select(MemberDB).where(MemberDB.email == "alice@example.com")
+        select(MemberDB).where(MemberDB.email == "brian@example.com")
     )
     member = member.scalar_one_or_none()
     
     mock_authz.remove_user_role.return_value = True
     
     app.dependency_overrides[get_authz_service] = lambda: mock_authz
-    app.dependency_overrides[get_db] = lambda: db_session
+    
+    async def override_get_db():
+        yield db_session
+    
+    app.dependency_overrides[get_db] = override_get_db
 
     try:
         response = await client.delete(
-            f"/system/members/{member.id}?role=admin&admin_user_id=boss"
+            f"/members/{member.id}?role=admin&admin_user_id=boss"
             )
 
         assert response.status_code == 200
@@ -95,27 +100,31 @@ async def test_remove_user_role_for_invited_user_success(
 
     db_session.add(
         MemberDB(
-            id="mem-1",
-            email="alice@example.com", 
+            id="mem-3",
+            email="alex@example.com", 
             role="admin", 
             status=MemberStatus.invited,
-            auth0_user_id="alice"
+            auth0_user_id="alex"
         )
     )
 
     await db_session.commit()
 
     member = await db_session.execute(
-        select(MemberDB).where(MemberDB.email == "alice@example.com")
+        select(MemberDB).where(MemberDB.email == "alex@example.com")
     )
     member = member.scalar_one_or_none()
         
     app.dependency_overrides[get_authz_service] = lambda: mock_authz
-    app.dependency_overrides[get_db] = lambda: db_session
+    
+    async def override_get_db():
+        yield db_session
+    
+    app.dependency_overrides[get_db] = override_get_db
 
     try:
         response = await client.delete(
-            f"/system/members/{member.id}?role=admin&admin_user_id=boss"
+            f"/members/{member.id}?role=admin&admin_user_id=boss"
             )
 
         assert response.status_code == 200
@@ -135,29 +144,33 @@ async def test_remove_user_role_for_removed_user_fail( client, db_session):
 
     db_session.add(
         MemberDB(
-            id="mem-1",
-            email="alice@example.com", 
+            id="mem-4",
+            email="carl@example.com",
             role="admin", 
             status=MemberStatus.removed,
-            auth0_user_id="alice"
+            auth0_user_id="carl"
         )
     )
 
     await db_session.commit()
 
     member = await db_session.execute(
-        select(MemberDB).where(MemberDB.email == "alice@example.com")
+        select(MemberDB).where(MemberDB.email == "carl@example.com")
     )
     member = member.scalar_one_or_none()
     
     mock_authz.remove_user_role.return_value = True
     
     app.dependency_overrides[get_authz_service] = lambda: mock_authz
-    app.dependency_overrides[get_db] = lambda: db_session
+    
+    async def override_get_db():
+        yield db_session
+    
+    app.dependency_overrides[get_db] = override_get_db
 
     try:
         response = await client.delete(
-            f"/system/members/{member.id}?role=admin&admin_user_id=boss"
+            f"/members/{member.id}?role=admin&admin_user_id=boss"
             )
 
         assert response.status_code == 400
@@ -171,11 +184,15 @@ async def test_remove_user_not_found(client, db_session):
     mock_authz.check_permission.return_value = True
     
     app.dependency_overrides[get_authz_service] = lambda: mock_authz
-    app.dependency_overrides[get_db] = lambda: db_session
+    
+    async def override_get_db():
+        yield db_session
+    
+    app.dependency_overrides[get_db] = override_get_db
 
     try:
         response = await client.delete(
-            "/system/members/notmember?role=admin&admin_user_id=boss"
+            "/members/notmember?role=admin&admin_user_id=boss"
             )
 
         assert response.status_code == 404
@@ -193,7 +210,7 @@ async def test_remove_user_forbidden(client):
 
     try:
         response = await client.delete(
-            "/system/members/notmember?role=admin&admin_user_id=boss"
+            "/members/notmember?role=admin&admin_user_id=boss"
             )
 
         assert response.status_code == 403
@@ -208,25 +225,29 @@ async def test_invite_user_success(client, db_session):
     mock_authz.check_permission.return_value = True
 
     app.dependency_overrides[get_authz_service] = lambda: mock_authz
-    app.dependency_overrides[get_db] = lambda: db_session
+    
+    async def override_get_db():
+        yield db_session
+    
+    app.dependency_overrides[get_db] = override_get_db
 
     try:
-        payload = {"email": "alice@example.com", "role": "admin"}
+        payload = {"email": "tobey@example.com", "role": "admin"}
         response = await client.post(
-            "/system/invite?admin_user_id=boss",
+            "/members/invite?admin_user_id=boss",
             json=payload
         )
 
         assert response.status_code == 200
 
         body = response.json()
-        assert body["email"] == "alice@example.com"
+        assert body["email"] == "tobey@example.com"
         assert body["role"] == "admin"
         assert body["is_used"] is False
 
         result_invitation = await db_session.execute(
             select(InvitationDB).where(
-                InvitationDB.email == "alice@example.com"
+                InvitationDB.email == "tobey@example.com"
             )
         )
 
@@ -234,19 +255,19 @@ async def test_invite_user_success(client, db_session):
 
         result_member = await db_session.execute(
             select(MemberDB).where(
-                MemberDB.email == "alice@example.com"
+                MemberDB.email == "tobey@example.com"
             )
         )
 
         member = result_member.scalar_one_or_none()
 
         assert invitation is not None
-        assert invitation.email == "alice@example.com"
+        assert invitation.email == "tobey@example.com"
         assert invitation.role == "admin"
         assert invitation.is_used is False
 
         assert member is not None
-        assert member.email == "alice@example.com"
+        assert member.email == "tobey@example.com"
         assert member.role == "admin"
         assert member.status == MemberStatus.invited
 
@@ -279,7 +300,7 @@ async def test_webhook_sync_success(client, db_session):
     try:
 
         response = await client.post(
-            "/system/auth/webhook/post-registration",
+            "/members/auth/webhook/post-registration",
             json={"user_id": "auth0|123", "email": "test@example.com"}
         )
 
@@ -319,7 +340,7 @@ async def test_webhook_sync_no_invitation(client, db_session):
     try:
         payload = {"email": "stranger@example.com", "user_id": "auth0|123"}
         response = await client.post(
-            "/system/auth/webhook/post-registration", json=payload
+            "/members/auth/webhook/post-registration", json=payload
         )
 
         # Should be 404 (Not Found), not 401 (Unauthorized)
@@ -337,7 +358,7 @@ async def test_get_members_success(client, db_session):
 
         # Active member mock
         MemberDB(
-            id="member1", email="alice@example.com", role="admin", status=MemberStatus.active
+            id="member1", email="peter@example.com", role="admin", status=MemberStatus.active
         ),
 
         # invited/unactive member mock
@@ -356,13 +377,17 @@ async def test_get_members_success(client, db_session):
     mock_authz.check_permission.return_value = True
 
     app.dependency_overrides[get_authz_service] = lambda: mock_authz
-    app.dependency_overrides[get_db] = lambda: db_session
+    
+    async def override_get_db():
+        yield db_session
+    
+    app.dependency_overrides[get_db] = override_get_db
 
     try:
 
         # 3. Act
         response = await client.get(
-            "/system/members", params={"admin_user_id": "boss"}
+            "/members/?admin_user_id=boss"
         )
 
         data = response.json()
@@ -372,13 +397,14 @@ async def test_get_members_success(client, db_session):
 
         statuses_by_email = {member["email"]: member["status"] for member in data}
 
-        assert statuses_by_email["alice@example.com"] == "active"
+        assert statuses_by_email["peter@example.com"] == "active"
         assert statuses_by_email["bob@example.com"] == "invited"
 
+        # Should return 2 members (active + invited, excluding removed)
         assert len(data) == 2
 
         assert {member["email"] for member in data} == {
-            "alice@example.com", "bob@example.com"
+            "bob@example.com", "peter@example.com"
         }
 
         assert "charlie@example.com" not in {member["email"] for member in data}
@@ -393,12 +419,16 @@ async def test_get_members_fail(client, db_session):
     mock_authz.check_permission.return_value = False
     
     app.dependency_overrides[get_authz_service] = lambda: mock_authz
-    app.dependency_overrides[get_db] = lambda: db_session
+    
+    async def override_get_db():
+        yield db_session
+    
+    app.dependency_overrides[get_db] = override_get_db
 
     try:
         # 2. Act
         response = await client.get(
-            "/system/members?admin_user_id=boss"
+            "/members/?admin_user_id=boss"
         )
 
         # 3. Assert

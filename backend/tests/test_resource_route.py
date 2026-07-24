@@ -1,15 +1,16 @@
 from unittest.mock import AsyncMock, patch
 import pytest
 from sqlalchemy import select
-from app.database import ResourceDB, get_db
+from app.modules.resource.model import ResourceDB
+from app.core.database import get_db
 from app.main import app
-from app.routes.resource_routes import get_authz_service, get_current_user
+from app.modules.resource.routes import get_authz_service, get_current_user
 
 from fastapi.security import HTTPAuthorizationCredentials
 from fastapi.exceptions import HTTPException
 
 @pytest.mark.asyncio
-@patch("app.routes.resource_routes.verify_auth0_token")
+@patch("app.modules.resource.routes.verify_auth0_token")
 async def test_get_current_user_success(mock_verify_auth0_token):
     # 1. Arrange: Create a mock payload dictionary and configure mock
     mock_payload = {"sub": "user123"}
@@ -28,7 +29,7 @@ async def test_get_current_user_success(mock_verify_auth0_token):
     mock_verify_auth0_token.assert_called_once_with("fake_token_string")
 
 @pytest.mark.asyncio
-@patch("app.routes.resource_routes.verify_auth0_token", new_callable=AsyncMock)
+@patch("app.modules.resource.routes.verify_auth0_token", new_callable=AsyncMock)
 async def test_get_current_user_fail(mock_verify_auth0_token):
     # 1. Arrange: Create a mock payload dictionary and configure mock
     mock_payload = {}

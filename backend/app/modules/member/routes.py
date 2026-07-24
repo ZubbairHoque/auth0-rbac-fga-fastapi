@@ -7,17 +7,18 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from app.services.authorization_service import authz_service, AuthorizationService
-from app.models.invitation import InvitationCreate, Auth0RegistrationPayLoad, Invitation
-from app.database import MemberDB, InvitationDB, get_db
-from app.utils.security import verify_signature
-from app.config import settings
-from app.models.member import Member, MemberStatus
+from app.modules.auth_fga.service import authz_service, AuthorizationService
+from app.modules.auth_fga.routes import get_authz_service
+from app.modules.member.schema import InvitationCreate, Auth0RegistrationPayLoad, Invitation, Member, MemberStatus
+from app.modules.member.model import MemberDB, InvitationDB
+from app.core.database import get_db
+from app.core.security import verify_signature
+from app.core.config import settings
+
 
 router = APIRouter()
 
-def get_authz_service() -> AuthorizationService:
-    return authz_service
+
 
 # --- SECURITY GUARD ---
 
@@ -59,7 +60,7 @@ async def assign_user_role(
     
     return {"message": f"User {assignment.user_id} assigned to {assignment.role}"}
 
-@router.delete("/members/{member_id}")
+@router.delete("/{member_id}")
 async def remove_user_role(
     member_id: str,
     role: str = Query(..., description="Role to remove ('admin' or 'member')"),
@@ -99,7 +100,6 @@ async def remove_user_role(
         )
 
     await db.commit()
-    
     return {"message": f"User {member_id} removed from {role}"}
 
 @router.post("/invite", response_model=Invitation)
@@ -192,7 +192,7 @@ async def sync_user_to_fga(
 
     return {"message": f"Successfully synced {payload.email} to FGA"}
 
-@router.get("/members", response_model=list[Member])
+@router.get("/", response_model=list[Member])
 async def get_members(
     admin_user_id: str = Query(..., description="Admin ID performing the action"),
     authz: AuthorizationService = Depends(get_authz_service),

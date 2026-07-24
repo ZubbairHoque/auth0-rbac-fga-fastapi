@@ -6,7 +6,7 @@ from httpx import ASGITransport, AsyncClient
 import pytest
 from sqlalchemy import StaticPool
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from app.database import Base  # Import your SQLAlchemy declarative Base
+from app.core.database import Base  # Import your SQLAlchemy declarative Base
 from app.main import app
 
 # Use an in-memory SQLite database for fast testing
@@ -26,7 +26,6 @@ async def db_engine():
     yield engine
     await engine.dispose()
 
-# todo - swap to savepoint rollback instead of manual rollback
 
 @pytest.fixture
 async def db_session(db_engine):
@@ -52,7 +51,7 @@ async def db_session(db_engine):
             await session.execute(table.delete())
         await session.commit()
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 async def client():
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:

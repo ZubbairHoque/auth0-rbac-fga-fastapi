@@ -1,7 +1,7 @@
 import hmac
 import hashlib 
 from fastapi import HTTPException
-from app.config import settings
+from app.core.config import settings
 import jwt
 
 jwks_url = f"https://{settings.auth0_fga_domain}/.well-known/jwks.json"

@@ -1,5 +1,5 @@
 from fastapi.exceptions import HTTPException
-from app.utils.security import verify_auth0_token
+from app.core.security import verify_auth0_token
 from unittest.mock import MagicMock
 from unittest.mock import patch
 import time
@@ -7,9 +7,9 @@ import pytest
 import jwt
 import hmac
 import hashlib
-from app.config import settings
+from app.core.config import settings
 
-from app.utils.security import verify_signature
+from app.core.security import verify_signature
 
 def test_valid_signature_success():
     """Verify the HMAC signature of incoming raw bytes."""
@@ -36,8 +36,8 @@ def test_invalid_signature_fail():
     assert not verify_signature(raw_body, secret, "invalid_signature")
 
 @pytest.mark.asyncio
-@patch("app.utils.security.jwt.decode")
-@patch("app.utils.security.jwks_client.get_signing_key_from_jwt")
+@patch("app.core.security.jwt.decode")
+@patch("app.core.security.jwks_client.get_signing_key_from_jwt")
 async def test_verify_valid_signature_success(
     mock_get_key, mock_decode
     ):
@@ -69,8 +69,8 @@ async def test_verify_valid_signature_success(
         jwt.ExpiredSignatureError("Token has expired"),
     ],
 )
-@patch("app.utils.security.jwt.decode")
-@patch("app.utils.security.jwks_client.get_signing_key_from_jwt")
+@patch("app.core.security.jwt.decode")
+@patch("app.core.security.jwks_client.get_signing_key_from_jwt")
 async def test_verify_invalid_signature_fail(
     mock_get_key, mock_decode, exception_class
     ):

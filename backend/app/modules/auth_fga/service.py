@@ -2,7 +2,7 @@ import logging
 from typing import List, Optional
 from openfga_sdk import ApiException
 from openfga_sdk.client.models import ClientTuple
-from app.utils.auth0_fga_client import fga_client
+from app.modules.auth_fga.client import fga_client
 
 ROLES = ["admin", "member"]
 

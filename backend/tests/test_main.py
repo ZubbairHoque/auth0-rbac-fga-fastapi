@@ -2,8 +2,8 @@ from unittest.mock import AsyncMock
 from httpx import ASGITransport, AsyncClient
 import pytest
 from app.main import app
-from app.routes.resource_routes import get_authz_service
-from app.database import get_db
+from app.modules.resource.routes import get_authz_service
+from app.core.database import get_db
 
 @pytest.mark.asyncio
 async def test_lifespan():
@@ -33,7 +33,7 @@ async def test_root(client):
 @pytest.mark.asyncio
 async def test_read_items(db_session):
     """Test if we can read Resources table"""
-    from app.database import ResourceDB
+    from app.modules.resource.model import ResourceDB
 
     new_item = ResourceDB(id="124", name="Test Item", resource_type="sensor")
 

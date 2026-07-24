@@ -7,17 +7,18 @@ from typing import List
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from app.models.resource import Resource, ResourceCreate
-from app.database import get_db, ResourceDB
-from app.services.authorization_service import authz_service, AuthorizationService
-from app.utils.security import verify_auth0_token
+from app.modules.resource.schema import Resource, ResourceCreate
+from app.modules.auth_fga.routes import get_authz_service
+from app.core.database import get_db
+from app.modules.resource.model import ResourceDB
+from app.modules.auth_fga.service import authz_service, AuthorizationService
+from app.core.security import verify_auth0_token
 
 router = APIRouter()
 
 security = HTTPBearer()
 
-def get_authz_service() -> AuthorizationService:
-    return authz_service
+
 
 async def get_current_user(
         token:HTTPAuthorizationCredentials= Depends(security)
