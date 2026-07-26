@@ -52,7 +52,7 @@ async def test_get_current_user_fail(mock_verify_auth0_token):
 # Fixture to create a client for our async backend
 
 @pytest.mark.asyncio
-async def test_get_resource_sucess(db_session, client):
+async def test_get_resource_success(db_session, client):
 
     # 1. ARRANGE: Put data in so the GET can find it
     resource = ResourceDB(

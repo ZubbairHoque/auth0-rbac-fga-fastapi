@@ -1,51 +1,14 @@
 import tracemalloc
-from app.modules.member.schema import MemberBase
 from app.modules.member.routes import get_authz_service, validate_webhook_signature
 from app.modules.member.model import MemberDB, InvitationDB
 from app.core.database import get_db
 from app.modules.member.schema import MemberStatus
 from sqlalchemy import select
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock
 import pytest
 from app.main import app
 
 tracemalloc.start()
-
-@pytest.mark.asyncio
-async def test_assign_role_success(client):
-    mock_authz = AsyncMock()
-    mock_authz.check_permission.return_value = True
-    mock_authz.assign_user_role.return_value = True
-    
-    app.dependency_overrides[get_authz_service] = lambda: mock_authz
-
-    try:
-        payload = {"user_id": "alice", "role": "admin"}
-        response = await client.post(
-            "/auth/users?admin_user_id=boss", json=payload
-            )
-        
-        assert response.status_code == 200
-        assert response.json()["message"] == "User alice assigned to admin"
-    finally:
-        app.dependency_overrides = {}
-
-@pytest.mark.asyncio
-async def test_assign_role_forbidden(client):
-    mock_authz = AsyncMock()
-    mock_authz.check_permission.return_value = False
-    
-    app.dependency_overrides[get_authz_service] = lambda: mock_authz
-
-    try:
-        payload = {"user_id": "alice", "role": "admin"}
-        response = await client.post(
-            "/auth/users?admin_user_id=notadmin", json=payload
-            )
-        
-        assert response.status_code == 403
-    finally:
-        app.dependency_overrides = {}
 
 @pytest.mark.asyncio
 async def test_remove_user_role_for_active_user_success( client, db_session):

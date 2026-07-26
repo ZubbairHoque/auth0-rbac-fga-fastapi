@@ -38,7 +38,6 @@ async def lifespan(app: FastAPI):
 
     yield
 
-
 app = FastAPI(
     title="Auto Texting",
     version=settings.app_version,

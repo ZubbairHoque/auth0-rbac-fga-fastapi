@@ -1,11 +1,7 @@
 from sqlalchemy.orm import mapped_column
 from sqlalchemy.orm import Mapped
 from datetime import UTC, datetime
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
-from sqlalchemy.orm import DeclarativeBase
-from sqlalchemy import Boolean, Column, Enum, StaticPool, String, DateTime, Text
-from app.core.config import settings
-from sqlalchemy.sql import func
+from sqlalchemy import Boolean, Column, Enum,  String, DateTime
 from app.core.database import Base
 
 from app.modules.member.schema import MemberStatus

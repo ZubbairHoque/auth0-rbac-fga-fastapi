@@ -1,64 +1,24 @@
-from sqlalchemy import update
-from httpx import delete
 import uuid
 from datetime import datetime, timezone
-from fastapi import APIRouter, HTTPException, Header, Query, Depends, Request
+from fastapi import APIRouter, HTTPException,  Query, Depends
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from app.modules.auth_fga.service import authz_service, AuthorizationService
+from app.modules.auth_fga.service import  AuthorizationService
 from app.modules.auth_fga.routes import get_authz_service
 from app.modules.member.schema import InvitationCreate, Auth0RegistrationPayLoad, Invitation, Member, MemberStatus
+from app.modules.auth_fga.routes import validate_webhook_signature
 from app.modules.member.model import MemberDB, InvitationDB
 from app.core.database import get_db
-from app.core.security import verify_signature
-from app.core.config import settings
-
 
 router = APIRouter()
-
-
-
-# --- SECURITY GUARD ---
-
-async def validate_webhook_signature(
-    request: Request, 
-    x_auth0_signature: str = Header(None)
-):
-    """
-    Bouncer: Checks the signature before the route logic runs.
-    Uses raw request body to ensure integrity.
-    """
-    if not x_auth0_signature:
-        raise HTTPException(status_code=401, detail="Webhook signature missing")
-        
-    body = await request.body()
-    if not verify_signature(body, settings.webhook_signature_secret, x_auth0_signature):
-        raise HTTPException(status_code=403, detail="Invalid webhook signature")
 
 # --- ROUTES ---
 
 class UserAssignment(BaseModel):
-    user_id: str = Field(..., description="User ID to assign")
+    user_id: str = Field(..., description="Use ID to assign")
     role: str = Field(..., description="Role: 'admin' or 'member'")
-
-@router.post("/users")
-async def assign_user_role(
-    assignment: UserAssignment,
-    admin_user_id: str = Query(..., description="Admin ID performing the action"),
-    authz: AuthorizationService = Depends(get_authz_service)
-):
-    """Assign a global role to a user (Admin only)."""
-    if not await authz.check_permission(admin_user_id, "can_manage_users"):
-        raise HTTPException(status_code=403, detail="Only admins can manage users")
-        
-    # assign user privilege
-    success = await authz.assign_user_role(assignment.user_id, assignment.role)
-    if not success:
-        raise HTTPException(status_code=500, detail="Failed to assign role")
-    
-    return {"message": f"User {assignment.user_id} assigned to {assignment.role}"}
 
 @router.delete("/{member_id}")
 async def remove_user_role(
@@ -158,7 +118,7 @@ async def sync_user_to_fga(
     result = await db.execute(
         select(InvitationDB).where(
             InvitationDB.email == payload.email,
-            InvitationDB.is_used == False
+            InvitationDB.is_used.is_(False)
         )
     )
     invitation = result.scalar_one_or_none()

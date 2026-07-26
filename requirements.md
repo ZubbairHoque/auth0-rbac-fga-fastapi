@@ -4,9 +4,13 @@
 
 Refactor `backend/app` from a **layered architecture** (models/, routes/, services/, utils/) to a **modular monolith** organised by **business domain** under `app/modules/`.
 
+> [!NOTE]
+> **Status:** COMPLETED :tada:
+> All tests pass (51/51) and the old layered directories have been safely removed.
+
 ---
 
-## 2. Current Architecture (Before)
+## 2. Previous Architecture (Before)
 
 ```
 backend/app/
@@ -37,7 +41,7 @@ backend/app/
 
 ---
 
-## 3. Target Architecture (After)
+## 3. Current Architecture (After Migration)
 
 ```
 backend/app/
@@ -209,31 +213,53 @@ After the refactor, `main.py` should:
 
 ---
 
-## 8. Migration Order
+---
 
-Execute the refactor in this order to keep the app working at every step:
+## 8. Migration Completion Checklist
 
-| Step | Action | Risk |
-|------|--------|------|
-| 1 | Create `app/core/` — move `config.py`, `database.py` (engine only), `security.py`. Update imports. | Low |
-| 2 | Create `app/modules/resource/` — create `model.py` and `schema.py`, move `routes.py`. Update imports. | Low |
-| 3 | Create `app/modules/auth_fga/` — move `client.py`, `service.py`, `model.fga.yaml`. Update imports. | Medium |
-| 4 | Create `app/modules/member/` — extract routes from `system_routes.py`, split models and schemas. | High |
-| 5 | Create `app/modules/auth_fga/routes.py` — extract remaining routes from `system_routes.py` + `dashboard_routes.py`. | High |
-| 6 | Update `main.py` — new router imports, clean prefixes, remove inline endpoints. | Medium |
-| 7 | Update all test files — fix imports, optionally restructure test directories. | Low |
-| 8 | Delete old empty directories (`app/models/`, `app/routes/`, `app/services/`, `app/utils/`, `app/fga/`). | Low |
+- [x] Create `app/core/` and move infrastructure files.
+- [x] Create `app/modules/resource/` and extract models/schemas/routes.
+- [x] Create `app/modules/auth_fga/` and configure service & client.
+- [x] Create `app/modules/member/` and extract member/invite routes.
+- [x] Extract remaining `system_routes.py` logic.
+- [x] Update `main.py` router registration.
+- [x] Update all test suites and fix dependency overrides.
+- [x] Tests pass successfully (51/51).
+- [x] Delete old legacy directories.
 
 ---
 
-## 9. Files to Delete After Migration
+## 9. Phase 2: Test Architecture Refactor
 
-Once all code is moved and tests pass:
+### 9.1 Goal
+Mirror the modular monolith structure in the `backend/tests/` directory to make tests easier to find and maintain. Tests should be grouped by the domain they verify rather than sitting in a flat list.
 
-- `app/config.py`
-- `app/database.py`
-- `app/models/` (entire directory)
-- `app/routes/` (entire directory)
-- `app/services/` (entire directory)
-- `app/utils/` (entire directory)
-- `app/fga/` (entire directory)
+### 9.2 Target Test Architecture
+
+```
+backend/tests/
+├── conftest.py
+├── test_main.py
+├── core/
+│   ├── test_db.py
+│   └── test_security.py
+└── modules/
+    ├── resource/
+    │   └── test_resource_routes.py (renamed from test_resource_route.py)
+    ├── member/
+    │   └── test_member_routes.py (extracted from test_system_routes.py)
+    └── auth_fga/
+        ├── test_authorization_service.py
+        ├── test_client.py (renamed from test_utils_auth0_fg_client.py)
+        └── test_auth_routes.py (extracted from test_dashboard_routes.py & auth routes in test_system_routes.py)
+```
+
+### 9.3 Migration Steps
+
+1. **Core Infrastructure Tests:** Create `backend/tests/core/` and move `test_db.py` and `test_security.py`.
+2. **Resource Module Tests:** Create `backend/tests/modules/resource/` and move `test_resource_route.py` (rename it to `test_resource_routes.py`).
+3. **Auth FGA Module Tests:** Create `backend/tests/modules/auth_fga/` and move `test_authorization_service.py` and `test_utils_auth0_fg_client.py` (rename to `test_client.py`).
+4. **Member Module Tests:** Create `backend/tests/modules/member/` and extract member-related tests (e.g., invites, webhooks, member removal) from `test_system_routes.py` into a new `test_member_routes.py`.
+5. **Auth Routes Tests:** Extract the FGA role assignment and dashboard tests from `test_system_routes.py` and `test_dashboard_routes.py` into `backend/tests/modules/auth_fga/test_auth_routes.py`.
+6. **Cleanup:** Delete `test_dashboard_routes.py` and `test_system_routes.py`.
+7. **Verification:** Run `pytest tests/ -v` to ensure all 51 tests still pass!

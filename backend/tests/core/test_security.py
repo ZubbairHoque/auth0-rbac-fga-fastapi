@@ -7,7 +7,6 @@ import pytest
 import jwt
 import hmac
 import hashlib
-from app.core.config import settings
 
 from app.core.security import verify_signature
 

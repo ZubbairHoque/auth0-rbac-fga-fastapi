@@ -8,6 +8,7 @@ from sqlalchemy import StaticPool
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from app.core.database import Base  # Import your SQLAlchemy declarative Base
 from app.main import app
+import jwt
 
 # Use an in-memory SQLite database for fast testing
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
@@ -61,7 +62,6 @@ async def client():
 def anyio_backend():
     return "asyncio", {"use_selector": True}
 
-import jwt
 
 @pytest.fixture
 @patch("app.utils.security.jwt.encode")

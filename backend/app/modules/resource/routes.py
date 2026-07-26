@@ -1,5 +1,3 @@
-from openfga_sdk.models import list_users_request
-from openfga_sdk.models import list_users_request
 import uuid
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -11,7 +9,7 @@ from app.modules.resource.schema import Resource, ResourceCreate
 from app.modules.auth_fga.routes import get_authz_service
 from app.core.database import get_db
 from app.modules.resource.model import ResourceDB
-from app.modules.auth_fga.service import authz_service, AuthorizationService
+from app.modules.auth_fga.service import AuthorizationService
 from app.core.security import verify_auth0_token
 
 router = APIRouter()
