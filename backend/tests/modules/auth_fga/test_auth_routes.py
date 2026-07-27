@@ -55,15 +55,18 @@ async def test_validate_webhook_signature_fail():
     assert exc_info.value.status_code == 403
     assert exc_info.value.detail == "Invalid webhook signature"
 
-# @pytest.mark.asyncio
-# async def test_get_health():
-#     mock_service = AsyncMock()
-#     mock_service.check_auth0_fga_health.return_value = True
+@pytest.mark.asyncio
+async def test_get_health(monkeypatch):
 
-#     app.dependency_overrides[get_authz_service] = lambda: mock_service
-#     response = client.get("/auth/health")
-#     assert response.status_code == 200
-#     assert response.json() ==  {"status": "ok", "message": "Auth0 FGA connection is healthy"}
+    monkeypatch.setattr(
+        "app.modules.auth_fga.routes.authz_service.check_auth0_fga_health",
+        AsyncMock(return_value=True)
+    )
+    response = client.get("/auth/health")
+    assert response.status_code == 200
+    assert response.json() ==  {
+        "status": "ok", "message": "Auth0 FGA connection is healthy"
+    }
 
 @pytest.mark.asyncio
 async def test_dashboard_access_success():
