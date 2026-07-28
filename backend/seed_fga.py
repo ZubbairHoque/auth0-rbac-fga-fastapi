@@ -4,8 +4,8 @@ import yaml
 import logging
 import subprocess
 from pathlib import Path
-from app.config import settings
-from app.utils.auth0_fga_client import fga_client
+from app.core.config import settings
+from app.modules.auth_fga.client import fga_client
 from openfga_sdk.client.models import ClientTuple
 
 # Set up logging
@@ -22,12 +22,14 @@ async def deploy_model():
     # Ensure fga.exe exists
     fga_executable = Path("fga.exe")
     if not fga_executable.exists():
-        logger.error("fga.exe not found in the backend directory. Cannot deploy model automatically.")
+        logger.error(
+            "fga.exe not found in the backend directory. Cannot deploy model automatically."
+        )
         return False
         
     cmd = [
         str(fga_executable.absolute()), "model", "write",
-        "--file", "app/fga/model.fga.yaml"
+        "--file", "/backend/app/modules/auth_fga/model.fga.yaml"
     ]
     
     # Add auth flags from settings
@@ -77,7 +79,7 @@ async def main():
     await deploy_model()
 
     # 3. Read the YAML file for tuples and tests
-    yaml_path = Path("app/fga/model.fga.yaml")
+    yaml_path = Path("backend/app/modules/auth_fga/model.fga.yaml")
     if not yaml_path.exists():
         logger.error(f"❌ Could not find FGA model file at {yaml_path}")
         return
