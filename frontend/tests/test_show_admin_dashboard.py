@@ -1,9 +1,6 @@
 
 from unittest.mock import Mock, patch, MagicMock
-from opentelemetry.trace import StatusCode
 from tests.test_show_login_page import _resp
-from streamlit.testing.v1 import AppTest
-from app import extract_error
 import requests
 import app
 
@@ -51,16 +48,19 @@ def  test_dashboard_metrics(mock_requests, mock_st):
     mock_st.metric.assert_any_call("Active Invitations:", 1)
 
 @patch("app.st")
+@patch("builtins.print")
 @patch("app.requests.get")
-def test_failed_to_load_member_connection_error(mock_requests, mock_st):
+def test_failed_to_load_member_connection_error(mock_requests, mock_print, mock_st):
     """Should log an exception for a connection error."""
 
     mock_st.divider.return_value = None
     mock_st.columns.return_value = (MagicMock(), MagicMock())
 
-    mock_requests.side_effect = requests.exceptions.ConnectionError
+    mock_requests.side_effect = requests.exceptions.ConnectionError("Connection failed")
     app.show_admin_dashboard("user:alice")
 
+    # assert print statement
+    mock_print.assert_any_call("Validation for admin role failed: Connection failed")
     mock_st.error.assert_any_call("Failed to load members")
     
 @patch("app.st")
@@ -362,7 +362,9 @@ def test_remove_member_connection_error(
 
     mock_extract.return_value = "Alice"
     app.show_admin_dashboard("user:alice")
-    mock_st.error.assert_called_once_with("Connection failed. Is the backend server running?")
+    mock_st.error.assert_called_once_with(
+        "Connection failed. Is the backend server running?"
+    )
     
 @patch("app.st")
 @patch("app.requests")

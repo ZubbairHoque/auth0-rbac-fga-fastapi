@@ -1,5 +1,3 @@
-from httpx import request
-from streamlit import spinner
 import os
 import streamlit as st
 import pandas as pd
@@ -94,6 +92,7 @@ def show_admin_dashboard(user_id: str):
         members = res.json()
 
     except Exception as e:
+        print(f"Validation for admin role failed: {e}")
         st.error("Failed to load members")
         members = []
 
@@ -242,5 +241,4 @@ def main():
             st.rerun()
 
 if __name__ == "__main__":
-    import uvicorn
     main()
