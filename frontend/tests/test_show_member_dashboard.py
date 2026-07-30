@@ -1,9 +1,7 @@
 from unittest.mock import patch
-from streamlit.testing.v1 import AppTest
-import requests
 import app
 
-@patch("app.st")
+@patch("views.member.st")
 def test_show_member_dashboard(mock_st):
     """Show user_id in sidebar and logout button."""
 

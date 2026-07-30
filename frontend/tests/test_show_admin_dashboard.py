@@ -1,11 +1,11 @@
-
 from unittest.mock import Mock, patch, MagicMock
 from tests.test_show_login_page import _resp
 import requests
-import app
+import config
+import views.admin
 
-@patch("app.st")
-@patch("app.requests.get")
+@patch("views.admin.st")
+@patch("views.admin.requests.get")
 def  test_dashboard_metrics(mock_requests, mock_st):
     """Should return and show metrics of members."""
 
@@ -40,16 +40,16 @@ def  test_dashboard_metrics(mock_requests, mock_st):
 
     mock_requests.return_value = fake_members
 
-    app.show_admin_dashboard("user:alice")
+    views.admin.show_admin_dashboard("user:alice")
 
     assert mock_requests.call_args[0][0].endswith("/system/members")
 
     mock_st.metric.assert_any_call("Total Users:", 3)
     mock_st.metric.assert_any_call("Active Invitations:", 1)
 
-@patch("app.st")
+@patch("views.admin.st")
 @patch("builtins.print")
-@patch("app.requests.get")
+@patch("views.admin.requests.get")
 def test_failed_to_load_member_connection_error(mock_requests, mock_print, mock_st):
     """Should log an exception for a connection error."""
 
@@ -57,14 +57,14 @@ def test_failed_to_load_member_connection_error(mock_requests, mock_print, mock_
     mock_st.columns.return_value = (MagicMock(), MagicMock())
 
     mock_requests.side_effect = requests.exceptions.ConnectionError("Connection failed")
-    app.show_admin_dashboard("user:alice")
+    views.admin.show_admin_dashboard("user:alice")
 
     # assert print statement
     mock_print.assert_any_call("Validation for admin role failed: Connection failed")
     mock_st.error.assert_any_call("Failed to load members")
     
-@patch("app.st")
-@patch("app.requests.get")
+@patch("views.admin.st")
+@patch("views.admin.requests.get")
 def test_dataframe_success(mock_requests, mock_st):
     """Should return and show metrics of members."""
 
@@ -100,7 +100,7 @@ def test_dataframe_success(mock_requests, mock_st):
 
     mock_requests.return_value = fake_members
     
-    app.show_admin_dashboard("user:alice")
+    views.admin.show_admin_dashboard("user:alice")
 
     actual_df = mock_st.dataframe.call_args[0][0] 
 
@@ -111,10 +111,10 @@ def test_dataframe_success(mock_requests, mock_st):
     assert actual_df.iloc[1].role == "member"
     assert "removed" not in actual_df["status"].values
 
-@patch("app.st")
-@patch("app.requests.get")
-@patch("app.requests.delete")
-@patch("app.extract_error")
+@patch("views.admin.st")
+@patch("views.admin.requests.get")
+@patch("views.admin.requests.delete")
+@patch("views.admin.extract_error")
 def test_remove_member(
     mock_extract, mock_delete, mock_requests, mock_st
 ):
@@ -182,7 +182,7 @@ def test_remove_member(
     mock_delete.return_value = fake_delete_resp
 
     # 6. Run the function
-    app.show_admin_dashboard("user:alice")
+    views.admin.show_admin_dashboard("user:alice")
 
     # 7. Assertions
     actual_df = mock_st.dataframe.call_args[0][0]
@@ -202,7 +202,7 @@ def test_remove_member(
 
     # Verify the API delete call was constructed correctly for Alice
     mock_delete.assert_called_once_with(
-        f"{app.BACKEND_URL}/system/members/{alice_id}",
+        f"{config.BACKEND_URL}/system/members/{alice_id}",
         params={
             "role": f"{alice_role}",
             "admin_user_id": "user:alice",
@@ -210,8 +210,8 @@ def test_remove_member(
     )
 
 
-@patch("app.st")
-@patch("app.requests.get")
+@patch("views.admin.st")
+@patch("views.admin.requests.get")
 def test_member_list_empty(mock_requests, mock_st):
     """Req 4.3: empty member list shows empty-state info message."""
 
@@ -225,13 +225,13 @@ def test_member_list_empty(mock_requests, mock_st):
     fake_members.json.return_value = []
     mock_requests.return_value = fake_members
 
-    app.show_admin_dashboard("user:alice")
+    views.admin.show_admin_dashboard("user:alice")
 
     mock_st.info.assert_called_with("No active members found in the system")
 
 
-@patch("app.st")
-@patch("app.requests.get")
+@patch("views.admin.st")
+@patch("views.admin.requests.get")
 def test_all_removed(mock_requests, mock_st):
     """Req 4.4: all returned members removed -> empty df, no manage actions."""
 
@@ -251,7 +251,7 @@ def test_all_removed(mock_requests, mock_st):
     ]
     mock_requests.return_value = fake_members
 
-    app.show_admin_dashboard("user:alice")
+    views.admin.show_admin_dashboard("user:alice")
 
     actual_df = mock_st.dataframe.call_args[0][0]
     assert len(actual_df) == 0
@@ -262,10 +262,10 @@ def test_all_removed(mock_requests, mock_st):
     info_calls = [call[0][0] for call in mock_st.info.call_args_list]
     assert "No active members found in the system" not in info_calls
 
-@patch("app.st")
-@patch("app.requests.get")
-@patch("app.requests.delete")
-@patch("app.extract_error")
+@patch("views.admin.st")
+@patch("views.admin.requests.get")
+@patch("views.admin.requests.delete")
+@patch("views.admin.extract_error")
 def test_remove_member_extract_error(
     mock_extract, mock_delete, mock_requests, mock_st
 ):
@@ -311,15 +311,15 @@ def test_remove_member_extract_error(
 
     mock_extract.return_value = "Alice"
 
-    app.show_admin_dashboard("user:alice")
+    views.admin.show_admin_dashboard("user:alice")
 
     mock_extract.assert_called_once_with(fake_delete_resp)  
     mock_st.error.assert_any_call("Failed to remove: Alice")  
 
-@patch("app.st")
-@patch("app.requests.get")
-@patch("app.requests.delete")
-@patch("app.extract_error")
+@patch("views.admin.st")
+@patch("views.admin.requests.get")
+@patch("views.admin.requests.delete")
+@patch("views.admin.extract_error")
 def test_remove_member_connection_error(
     mock_extract, mock_delete, mock_requests, mock_st
 ):
@@ -361,13 +361,13 @@ def test_remove_member_connection_error(
     mock_delete.side_effect = requests.exceptions.ConnectionError
 
     mock_extract.return_value = "Alice"
-    app.show_admin_dashboard("user:alice")
+    views.admin.show_admin_dashboard("user:alice")
     mock_st.error.assert_called_once_with(
         "Connection failed. Is the backend server running?"
     )
     
-@patch("app.st")
-@patch("app.requests")
+@patch("views.admin.st")
+@patch("views.admin.requests")
 def test_invite_member_success( mock_requests, mock_st):
     """After invite form is submitted, invite should be sent with expected payload."""
 
@@ -414,10 +414,10 @@ def test_invite_member_success( mock_requests, mock_st):
 
     mock_col2.button.return_value = False
     
-    app.show_admin_dashboard("user:alice")
+    views.admin.show_admin_dashboard("user:alice")
     
     mock_requests.post.assert_called_once_with(
-        f"{app.BACKEND_URL}/system/invite",
+        f"{config.BACKEND_URL}/system/invite",
         params={"admin_user_id": "user:alice"},
         json={"email": "alice@example.com", "role": "member",},
     )
@@ -426,9 +426,9 @@ def test_invite_member_success( mock_requests, mock_st):
     mock_st.rerun.assert_called_once()
 
 
-@patch("app.st")
-@patch("app.requests")
-@patch("app.extract_error")
+@patch("views.admin.st")
+@patch("views.admin.requests")
+@patch("views.admin.extract_error")
 def test_invite_member_extract_error(mock_extract, mock_requests, mock_st):
     """After invite form is submitted, status code 400 should be handled."""
 
@@ -478,14 +478,14 @@ def test_invite_member_extract_error(mock_extract, mock_requests, mock_st):
 
     mock_col2.button.return_value = False
     
-    app.show_admin_dashboard("user:alice")
+    views.admin.show_admin_dashboard("user:alice")
     
     mock_st.error.assert_called_once_with("Failed to invite: Alice")
 
-@patch("app.st")
-@patch("app.requests.post")
-@patch("app.requests.get")
-@patch("app.extract_error")
+@patch("views.admin.st")
+@patch("views.admin.requests.post")
+@patch("views.admin.requests.get")
+@patch("views.admin.extract_error")
 def test_invite_member_connection_error(mock_extract, mock_get, mock_post, mock_st):
     """After invite form is submitted, invite should be sent with expected payload."""
 
@@ -534,14 +534,14 @@ def test_invite_member_connection_error(mock_extract, mock_get, mock_post, mock_
 
     mock_col2.button.return_value = False
     
-    app.show_admin_dashboard("user:alice")
+    views.admin.show_admin_dashboard("user:alice")
 
     mock_st.error.assert_called_once_with("Connection failed. Is the backend server running?")
 
 
-@patch("app.st")
-@patch("app.requests")
-@patch("app.extract_error")
+@patch("views.admin.st")
+@patch("views.admin.requests")
+@patch("views.admin.extract_error")
 def test_invite_member_empty_email(mock_extract, mock_requests, mock_st):
     """Invite member form should not submit if email is empty."""
 
@@ -571,7 +571,7 @@ def test_invite_member_empty_email(mock_extract, mock_requests, mock_st):
 
     mock_col2.button.return_value = False
     
-    app.show_admin_dashboard("user:alice")
+    views.admin.show_admin_dashboard("user:alice")
     
     mock_st.warning.assert_called_once_with("Email is required")
     mock_requests.assert_not_called()

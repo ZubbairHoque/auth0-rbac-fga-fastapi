@@ -3,10 +3,12 @@ import requests
 import app
 
 def _resp(status):
-    r = Mock(); r.status_code = status; return r
+    r = Mock()
+    r.status_code = status
+    return r
 
-@patch("app.st")
-@patch("app.requests.get")
+@patch("views.login.st")
+@patch("views.login.requests.get")
 def test_admin_login(mock_requests, mock_st):
     """Should return True for a valid role."""
 
@@ -24,8 +26,8 @@ def test_admin_login(mock_requests, mock_st):
     mock_st.session_state.__setitem__.assert_any_call("authenticated_role", "admin")
     mock_st.session_state.__setitem__.assert_any_call("user_id", "user:alice")
 
-@patch("app.st")
-@patch("app.requests.get")
+@patch("views.login.st")
+@patch("views.login.requests.get")
 def test_member_login(mock_requests, mock_st):
     """Should return True for a member role."""
 
@@ -43,8 +45,8 @@ def test_member_login(mock_requests, mock_st):
     mock_st.session_state.__setitem__.assert_any_call("authenticated_role", "member")
     mock_st.session_state.__setitem__.assert_any_call("user_id", "user:alice")
 
-@patch("app.st")
-@patch("app.requests.get")
+@patch("views.login.st")
+@patch("views.login.requests.get")
 def test_invalid_role_forbidden(mock_requests, mock_st, ):
     """Should return False for an invalid role."""
 
@@ -59,8 +61,8 @@ def test_invalid_role_forbidden(mock_requests, mock_st, ):
         "Access denied. No active roles assigned to this ID."
     )
 
-@patch("app.st")
-@patch("app.requests.get")
+@patch("views.login.st")
+@patch("views.login.requests.get")
 def test_empty_user_id(mock_requests, mock_st, caplog):
     """Should log an exception for an empty user ID."""
 
@@ -71,8 +73,8 @@ def test_empty_user_id(mock_requests, mock_st, caplog):
     app.show_login_page()
     mock_st.warning.assert_called_with("Please enter a User ID.")
         
-@patch("app.st")
-@patch("app.requests.get")
+@patch("views.login.st")
+@patch("views.login.requests.get")
 def test_connection_error(mock_requests, mock_st):
     """Should log an exception for a connection error."""
 

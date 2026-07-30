@@ -1,5 +1,5 @@
 from unittest.mock import Mock
-from app import extract_error
+from api import extract_error
 
 
 def test_extract_detail():
